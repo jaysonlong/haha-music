@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>翠花音乐</title>
+  <link rel="shortcut icon"type="image/x-icon"href="https://www.zhihu.com/favicon.ico" />
+  <link rel="stylesheet" href="https://cdn.bootcss.com/bootstrap/3.3.7/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="css/main.css" />
+</head>
+<body>
+  <div id="app">
+    <div id="playList" class="col-md-3">
+      <div class="play-list-title">播放列表</div>
+      <div class="scroll-table">
+        <div v-show="playList.length == 0" class="empty-list">列表为空</div>
+        <table class="table table-hover">
+          <tbody v-cloak>
+            <tr v-for="(song, index) in playList" @click="getSong(song.hash)" :title="song.fileName" :class="playListHash[songIndex] == song.hash ? 'playing' : ''">
+              <td><img class="origin-icon" :src="'images/' + song.songOrigin + '.png'"><span>{{index + 1 + ' - ' + song.fileName}}</span></td>
+              <td>
+                <span class="glyphicon glyphicon-trash" @click.stop="removeFromList(song.hash)"></span>
+              </td>
+              <td>{{song.time}}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div id="panel" class="col-md-6">
+      <div class="row">
+        <div class="shadow"></div>
+        <div id="content" v-cloak>
+          <p v-for="(lyric, i) in lyricArr">
+            {{ lyric }}
+          </p>
+          <p v-show="gettingRes" class="getting-res">获取资源中......</p>
+        </div>
+      </div>
+    </div>
+    <div id="searchBar" class="col-md-3" v-cloak>
+      <div class="input-group">
+        <input class="form-control" type="search" placeholder="搜索歌曲" @keyup.enter="search('','',true)"/>
+        <span class="input-group-btn">
+          <button class="btn btn-default" type="button" @click="search('','',true)"><span class="glyphicon glyphicon-search" aria-hidden="true"></span></button>
+        </span>
+      </div>
+      <ul id="myTab" class="nav nav-tabs">
+        <li v-for="(originName, origin) in originMap">
+          <a @click="setOrigin" :data-origin="origin" :href="'#' + origin" data-toggle="tab"> <img :data-origin="origin" :src="'images/' + origin + '.png'" alt="">{{ originName }}
+          </a>
+        </li>
+      </ul>
+      <div class="tab-container">
+        <span v-show="!noResult" id="top" @click="toTop" class="glyphicon glyphicon-chevron-up"></span>
+        <div class="tab-content">
+          <ul class="list-group tab-pane fade in" v-for="(originName, origin) in originMap" :id="origin">
+            <li class="list-group-item search-result" v-for="songInfo in searchResult[origin]"
+             @click="getSong(songInfo.hash)" :title="songInfo.fileName">
+              <a href="javascript:void(0);">{{ songInfo.fileName }}</a>
+              <span @click.stop="addToList(songInfo.hash)" class="fr glyphicon glyphicon-plus"></span>
+              <span class="fr time-tip">{{ songInfo.time }}</span>
+            </li>
+            <li v-show="!noResult" class="list-group-item loading" style="text-align: center;">加载中......</li>
+            <li v-show="noResult"  class="list-group-item no-result" style="text-align: center;">没有找到搜索结果</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div id="control" @mousedown="proDown" @mousemove="proMove" @mouseup="proUp" @touchstart="proDown" @touchmove.prevent="proMove" @touchend="proUp">
+      <div class="clearf">
+        <div class="blank fl">
+        </div>
+        <div class="tool fl">
+          <span @click="backward(true)" class="backward glyphicon glyphicon-backward"></span>
+          <span @click="toggle" class="toggle glyphicon glyphicon-play"></span>
+          <span @click="forward(true)" class="forward glyphicon glyphicon-forward"></span>
+        </div>
+        <div class="play-mode fl" @click="changeMode">
+          <img v-show="playMode == 1" src="images/single.png">
+          <img v-show="playMode == 2" src="images/random.png">
+          <img v-show="playMode == 0" src="images/loop.png">
+        </div>
+      </div>
+      <div class="info">
+        <img id="albumImg" src="images/record.png"/>
+        <div class="song-name" v-cloak>{{playList[songIndex] ? playList[songIndex].fileName : ''}}</div>
+        <div class="timer" v-cloak>{{convertToTime(currentTime)}}/{{convertToTime(duration)}}</div>
+        <div class="progress-all no-select" @click="setProgress">
+          <div class="_progress"></div>
+          <img class="pro-pointer" src="images/volume.png" @dragstart.prevent/>
+        </div>
+        <div class="volume no-select">
+          <span @click="shutVolume" class="glyphicon glyphicon-volume-down"></span>
+          <span class="volume-all" @click="setVolume">
+            <span class="volume-progress"></span>
+            <img class="volume-pointer" src="images/volume.png" @dragstart.prevent/>
+          </span>
+        </div>
+      </div>
+    </div>
+    <audio id="player" controls @play="setScroll" @ended="forward" @pause="clearScroll" @seeked="moveLyrics(true)">
+      你的浏览器不支持audio
+    </audio>
+  </div>
+
+  <script src="https://cdn.bootcss.com/vue/2.5.16/vue.min.js"></script>
+  <script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+  <script src="https://cdn.staticfile.org/twitter-bootstrap/3.3.7/js/bootstrap.min.js"></script>
+  <script src="https://cdn.bootcss.com/jquery.nicescroll/3.7.6/jquery.nicescroll.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/crypto-js.min.js"></script>
+  <script src="js/rsa.min.js"></script>
+  <script src="js/abroad.js"></script>
+  <script src="js/cookie.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

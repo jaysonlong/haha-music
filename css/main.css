@@ -1,0 +1,470 @@
+html, body, body:after {
+  width: 100%;
+  height: 100%;
+}
+body {
+  background-image: url(../images/bg.jpg);
+  background-size: cover;
+  position: relative;
+  z-index: -1;
+}
+body:after{
+  content: "";
+  position: absolute;
+  left:0;
+  top:0;
+  background: inherit;
+  z-index: -1;
+  -webkit-filter: blur(5px); 
+     -moz-filter: blur(5px);
+      -ms-filter: blur(5px);    
+          filter: blur(5px);
+}
+a {
+  cursor: pointer;
+}
+::-webkit-input-placeholder { /* WebKit browsers */
+  color: #bbb;
+  font-style: italic;
+}
+:-moz-placeholder { /* Mozilla Firefox 4 to 18 */
+  color: #bbb;
+  font-style: italic;
+}
+::-moz-placeholder { /* Mozilla Firefox 19+ */
+  color: #bbb;
+  font-style: italic;
+}
+:-ms-input-placeholder { /* Internet Explorer 10+ */
+  color: #bbb;
+  font-style: italic;
+}
+.fl {
+  float: left;
+}
+.fr {
+  float: right;
+}
+.glyphicon {
+  opacity: .7;
+  cursor: pointer;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+.no-select {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+.glyphicon:hover {
+  opacity: 1;
+}
+li a, li a:hover, li a:visited, li a:active, li a:focus {
+  text-decoration: none;
+}
+input {
+  padding: 0;
+  border: 0;
+  outline: 0;
+  width: 100%;
+}
+input.form-control:focus {
+  box-shadow: none;
+}
+.btn.active.focus, .btn.active:focus, .btn.focus, .btn:active.focus, .btn:active:focus, .btn:focus {
+  outline: 0;
+}
+.dropdown-menu {
+  min-width: 120px;
+}
+.clearf:after {
+  content: '';
+  display: block;
+  clear: both;
+}
+
+/*============================================================================*/
+
+#app {
+  height: 100%;
+  overflow: auto;
+}
+#playList {
+  height: 100%;
+  border-right: 1px gray solid;
+  box-shadow: 1px 0px 3px  gray;
+  padding: 0;
+  z-index: 0;
+}
+.play-list-title {
+  color: #fff;
+  font-weight: 700;
+  font-size: 2em;
+  padding: 10px 10px;
+}
+.scroll-table {
+  height: 85%;
+  border-top: .5px solid rgba(255,255,255,.5);
+  border-bottom: .5px solid rgba(255,255,255,.5);
+  font-size: 1em;
+  line-height: 2em;
+  color: #e7e7e7;
+}
+.scroll-table .table {
+  margin-bottom: 0;
+  table-layout: fixed;
+}
+.empty-list {
+  position: relative;
+  top: 50%;
+  transform: translateY(-50%);
+  color: white;
+  text-align: center;
+  font-size: 1.5em;
+}
+#playList tbody tr {
+  position: relative;
+  cursor: pointer;
+  border-top: .25px rgba(255,255,255,.3)  solid;
+  border-bottom: .25px rgba(255,255,255,.3)  solid;
+}
+#playList tbody tr:hover {
+  background: rgba(255,255,255,.2);
+}
+#playList tbody td {
+  border: 0;
+}
+#playList tbody td:first-child {
+  position: relative;
+  width: 70%;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+#playList tbody td:nth-child(2) {
+  width: 10%;
+}
+#playList tbody tr td:nth-child(2) span {
+  display: none;
+}
+#playList tbody tr:hover td:nth-child(2) span {
+  display: inline;
+}
+#playList td:first-child .origin-icon {
+  position: absolute;
+  top: 50%;
+  width:20px;
+  height:20px;
+  margin-top: -11px;
+}
+#playList td:first-child span {
+  margin-left: 30px;
+}
+.playing {
+  background: rgba(255,255,255,.2);
+}
+
+/*============================================================================*/
+
+#panel {
+  position: relative;
+  height: 500px;
+  overflow: hidden;
+  text-align: center;
+  font-family: sans-serif;
+  font-size: 1.6em;
+  line-height: 1.7;
+  color: #777;
+}
+#content {
+  position: absolute;
+  width: 100%;
+}
+.getting-res {
+  color: white;
+}
+.activelrc {
+  color: white;
+}
+
+/*============================================================================*/
+
+.form-group, .list-group {
+  margin: 0;
+}
+#searchBar {
+  height: 100%;
+  z-index: 0;
+  padding: 0;
+  padding-top: 15px;
+  border-left: 1px gray solid;
+  box-shadow: 1px 0px 3px  gray;
+}
+#searchBar .nav-tabs {
+  border-color: rgba(255,255,255,.5);
+}
+#searchBar .nav-tabs > li {
+  text-align: center;
+  width: 25%;
+}
+#searchBar .nav-tabs > li a {
+  padding: 10px 0px;
+}
+#searchBar .nav-tabs .active a {
+  background-color: rgba(255,255,255,.8);
+}
+#searchBar .tab-container {
+  position:relative; 
+  height: 80%; 
+}
+#searchBar .tab-content {
+  position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+  border-bottom: 1px solid rgba(255,255,255,.5);
+}
+.time-tip {
+  font-size:14px;
+  margin-right:20px;
+  color:#999
+}
+#searchBar .glyphicon-plus {
+  font-size:18px;
+}
+#searchBar .nav-tabs img {
+  width:20px;
+  height:20px;
+  vertical-align:middle;
+  margin-right:8px;
+  margin-bottom: 3px;
+}
+#searchBar .input-group {
+  margin: 10px;
+  border: 1px solid rgba(255,255,255,.5);
+  border-radius: 4px;
+}
+#searchBar input {
+  height: 40px;
+  background: rgba(0,0,0,0);
+  border: 0;
+  color: white;
+}
+#searchBar .btn {
+  height: 40px;
+  font-size: 18px;
+  background: rgba(0,0,0,0);
+  color: rgba(255,255,255);
+  border: 0;
+}
+#searchBar .list-group {
+  border-radius: 0;
+  color: white;
+}
+#searchBar .list-group > li {
+  width: 100%;
+  background: rgba(255,255,255,0);
+  border: 0;
+  border-bottom: .5px solid rgba(255,255,255,.2);
+}
+#searchBar .list-group-item {
+  height: 40px;
+}
+#searchBar .list-group-item:last-child {
+  text-align: center;
+  border: 0;
+}
+#searchBar .list-group-item.no-result {
+  position: absolute;
+  top: 50%;
+  margin-top: -20px;
+}
+#searchBar .list-group-item.search-result:hover {
+  background: rgba(255,255,255,.3);
+  cursor: pointer;
+}
+#searchBar .list-group-item a {
+  display: inline-block;
+  max-width: 70%;
+  color: white;
+  white-space: nowrap;
+  text-overflow:ellipsis;
+  overflow:hidden;
+}
+#searchBar .list-group-item:last-child a {
+  color: rgba(255,255,255,.7);
+}
+#searchBar .list-group-item:last-child a:hover {
+  color: rgba(255,255,255,1);
+}
+#top {
+  position: absolute;
+  right: 30px;
+  top: auto;
+  bottom: 30px;
+  z-index: 1;
+  height: 40px;
+  width: 40px;
+  text-align: center;
+  line-height: 37px;
+  border-radius: 50%;
+  font-size: 1.5em;
+  background: white;
+}
+
+/*============================================================================*/
+
+#control {
+  position: fixed;
+  z-index: 1;
+  bottom: 0;
+  width: 50%;
+  left: 25%;
+  text-align: center;
+}
+.blank {
+  width: 20%;
+  height: 10px;
+}
+.tool {
+  width: 60%;
+}
+.backward, .forward, .toggle {
+  border: 2px solid rgba(255,255,255,.5);
+  border-radius: 50%;
+  margin:0 10px;
+  color: white;
+}
+.backward, .forward {
+  width: 50px;
+  height: 50px;
+  padding-top: 8px;
+  font-size: 2em;
+}
+.backward {
+  padding-right: 9px;
+}
+.forward {
+  padding-left: 9px;
+}
+.toggle {
+  width: 80px;
+  height: 80px;
+  padding-left: 7px;
+  padding-top: 9px;
+  font-size: 4em;
+}
+.play-mode {
+  width: 20%;
+  height: 80px;
+  text-align: left;
+  cursor: pointer;
+  opacity: .5;
+}
+.play-mode:hover {
+  opacity: 1;
+}
+.play-mode img {
+  position: relative;
+  top: 50%;
+  width: 25px;
+  height: 25px;
+}
+.song-name {
+  width: 60%;
+  margin: 0 auto;
+  padding: 12px 0 5px;
+  text-align: center;
+  font-size: 0.9em;
+  color: #ddd;
+  white-space: nowrap;
+  text-overflow:ellipsis;
+  overflow:hidden;
+}
+.info {
+  width: 90%;
+  margin: 15px auto;
+  font-size: 20px;
+  vertical-align: middle;
+  text-align: center;
+}
+#albumImg {
+  width: 90px;
+  height: 90px;
+  border: 1.5px solid #b36262;
+  border-radius: 50%;
+  position: absolute;
+  left: 100px;
+  top: 10px;
+}
+.progress-all, .timer, .volume, .volume-all {
+  display: inline-block;
+}
+.progress-all, .volume-all {
+  position: relative;
+  margin: 7px 0;
+  height: 6px;
+  border: 1px solid black;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+}
+._progress, .volume-progress {
+  border-radius: 4px;
+  height: 4px;
+  background: orange;
+}
+.progress-all {
+  width: 350px;
+}
+._progress {
+  width: 0;
+}
+.volume {
+  width: 150px;
+}
+.volume-all {
+  width: 60%;
+}
+.volume-progress {
+  display: block;
+  width: 100%;
+}
+.timer {
+  position: relative;
+  top: -5px;
+  margin-right: 10px;
+  font-size: 16px;
+  color: #bdc883;
+}
+.pro-pointer, .volume-pointer {
+  position: absolute;
+  top: -8px;
+  width: 20px; 
+  height: 20px;
+}
+.pro-pointer {
+  left: -15px;
+}
+.volume-pointer {
+  right: -15px;
+}
+.volume .glyphicon {
+  color: white;
+  margin-left: 6px;
+  margin-right: 7px;
+}
+#player {
+  display: none;
+}
+[v-cloak] {
+  display: none;
+}
