@@ -133,11 +133,12 @@ var app = new Vue({
       this.noResult = false;
       pageSize = pageSize || this.pageSize;
       page = page || 1;
-      if (force) {
+      if (force || keyword != this.listInfo[this.currentOrigin].keyword) {
         this.$set(this.searchResult, this.currentOrigin, []);
-      } else if (page != this.listInfo[this.currentOrigin].page + 1 && keyword == this.listInfo[this.currentOrigin].keyword) {
+      } else if(page != this.listInfo[this.currentOrigin].page + 1) {
         return;
       }
+
       var that = this;
       searchSong(this.currentOrigin, keyword, page, pageSize, (res) => that.prepareResult(res.data, keyword, page));
     },
@@ -169,13 +170,11 @@ var app = new Vue({
     prepareResult: function(data, keyword, page) {
       var result = this.convertResult(data);
       if (page == this.listInfo[this.currentOrigin].page + 1) {
-        this.listInfo[this.currentOrigin].size += result.length;
         var newResult = this.searchResult[this.currentOrigin].concat(result);
         this.$delete(this.searchResult, this.currentOrigin);
         this.$set(this.searchResult, this.currentOrigin, newResult);
       } else {
         $('.tab-content').scrollTop(0);
-        this.listInfo[this.currentOrigin].size = result.length;
         this.$delete(this.searchResult, this.currentOrigin);
         this.$set(this.searchResult, this.currentOrigin, result);
       }
@@ -183,7 +182,7 @@ var app = new Vue({
       this.listInfo[this.currentOrigin].keyword = keyword;
       this.loadingList = false;
       this.noResult = this.searchResult[this.currentOrigin].length == 0;
-      setTimeout(this.tabScrollBar.resize, 300);
+      setTimeout(this.tabScrollBar.resize, 0);
     },
     convertToTime: function(length) {
       length = parseInt(length);
@@ -355,7 +354,8 @@ var app = new Vue({
     },
     setOrigin: function(e) {
       this.currentOrigin = e.target.dataset.origin;
-      setTimeout(this.tabScrollBar.resize, 300);
+      this.search();
+      setTimeout(this.tabScrollBar.resize, 0);
     },
     toTop: function () {
       $('.tab-content').scrollTop(0);
@@ -373,7 +373,6 @@ var app = new Vue({
       for(var key in this.originMap) {
         this.listInfo[key] = {
           page: 0,
-          size: 0,
           keyword: '',
         };
         this.searchResult[key] = [];
@@ -394,7 +393,8 @@ var app = new Vue({
       });
 
       var io = new IntersectionObserver(entries => {
-        entries[0].intersectionRatio > 0.005 && this.search(this.listInfo[this.currentOrigin].page + 1);
+        entries[0].intersectionRatio > 0.005 && app.searchResult[app.currentOrigin].length != 0
+         && this.search(this.listInfo[this.currentOrigin].page + 1);
       });
       $('.loading').each((i, el) => io.observe(el));
     },
