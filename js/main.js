@@ -9,9 +9,10 @@ var app = new Vue({
     midPos: 0,
     mouseFlag: 0,
     mouseTarget: 0,
-    loading: false, 
+    loadingList: false, 
+    loadingLyrics: false,
+    loadingSong: false,
     noResult: true,
-    gettingRes: false,
     activeLrc: 0, // 当前活跃的歌词序号
     interval: 0, // 间隔1秒更新播放时间和进度条位置
     pageSize: 20, // 每次加载的歌曲数量
@@ -31,6 +32,7 @@ var app = new Vue({
   },
   methods: {
     getSong: function(hash, autoplay = true) {
+      if (this.loadingSong) return;
       if (hash == this.currentHash) {
         this.player.currentTime = 0;
         this.player.play();
@@ -39,7 +41,8 @@ var app = new Vue({
       this.currentHash = hash;
       this.timeArr = [];
       this.lyricArr = [];
-      this.gettingRes = true;
+      this.loadingLyrics = true;
+      this.loadingSong = true;
       this.addToList(hash);
       this.songIndex = $.inArray(hash, this.playListHash);
       this.setLocal();
@@ -65,7 +68,8 @@ var app = new Vue({
       });
     },
     prepareLyrics: function(lyrics) {
-      this.gettingRes = false;
+      this.loadingLyrics = false;
+      this.loadingSong = false;
       var content = $('#content');
       content.css('top', this.midPos);
 
@@ -121,7 +125,7 @@ var app = new Vue({
       if (!keyword) {
         this.$set(this.searchResult, this.currentOrigin, []);
         this.listInfo[this.currentOrigin].page = 1;
-        this.loading = false;
+        this.loadingList = false;
         this.noResult = true;
         return;
       }
@@ -129,7 +133,9 @@ var app = new Vue({
       this.noResult = false;
       pageSize = pageSize || this.pageSize;
       page = page || 1;
-      if (!force && page != this.listInfo[this.currentOrigin].page + 1 && keyword == this.listInfo[this.currentOrigin].keyword) {
+      if (force) {
+        this.$set(this.searchResult, this.currentOrigin, []);
+      } else if (page != this.listInfo[this.currentOrigin].page + 1 && keyword == this.listInfo[this.currentOrigin].keyword) {
         return;
       }
       var that = this;
@@ -175,7 +181,7 @@ var app = new Vue({
       }
       this.listInfo[this.currentOrigin].page = page;
       this.listInfo[this.currentOrigin].keyword = keyword;
-      this.loading = false;
+      this.loadingList = false;
       this.noResult = this.searchResult[this.currentOrigin].length == 0;
       setTimeout(this.tabScrollBar.resize, 300);
     },
@@ -364,7 +370,6 @@ var app = new Vue({
       this.setVolume(null, this.volume);
       this.playList.length > 0 && 
         (this.getSong(this.playListHash[this.songIndex], false), setTimeout(this.scrollToSong, 300));
-
       for(var key in this.originMap) {
         this.listInfo[key] = {
           page: 0,
@@ -375,6 +380,19 @@ var app = new Vue({
       }
 
       $('[href="#' + this.currentOrigin + '"]').trigger('click');
+
+      // 音量控制
+      $(document).keyup((e) => {
+        switch (e.keyCode) {
+          case 38: // 上方向
+            this.setVolume(null, Math.min(1, this.volume + 0.05));
+            break;
+          case 40: // 下方向
+            this.setVolume(null, Math.max(0, this.volume - 0.05));
+            break;
+        }
+      });
+
       var io = new IntersectionObserver(entries => {
         entries[0].intersectionRatio > 0.005 && this.search(this.listInfo[this.currentOrigin].page + 1);
       });

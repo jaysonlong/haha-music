@@ -1,4 +1,4 @@
-html, body, body:after {
+html, body, body:before {
   width: 100%;
   height: 100%;
 }
@@ -6,15 +6,13 @@ body {
   background-image: url(../images/bg.jpg);
   background-size: cover;
   position: relative;
-  z-index: -1;
 }
-body:after{
+body:before{
   content: "";
   position: absolute;
   left:0;
   top:0;
   background: inherit;
-  z-index: -1;
   -webkit-filter: blur(5px); 
      -moz-filter: blur(5px);
       -ms-filter: blur(5px);    
@@ -101,7 +99,6 @@ input.form-control:focus {
   border-right: 1px gray solid;
   box-shadow: 1px 0px 3px  gray;
   padding: 0;
-  z-index: 0;
 }
 .play-list-title {
   color: #fff;
@@ -201,11 +198,10 @@ input.form-control:focus {
 }
 #searchBar {
   height: 100%;
-  z-index: 0;
   padding: 0;
   padding-top: 15px;
   border-left: 1px gray solid;
-  box-shadow: 1px 0px 3px  gray;
+  box-shadow: 1px 0px 3px gray inset;
 }
 #searchBar .nav-tabs {
   border-color: rgba(255,255,255,.5);
@@ -324,7 +320,6 @@ input.form-control:focus {
 
 #control {
   position: fixed;
-  z-index: 1;
   bottom: 0;
   width: 50%;
   left: 25%;
