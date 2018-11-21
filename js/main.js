@@ -32,7 +32,6 @@ var app = new Vue({
   },
   methods: {
     getSong: function(hash, autoplay = true) {
-      if (this.loadingSong) return;
       if (hash == this.currentHash) {
         this.player.currentTime = 0;
         this.player.play();
@@ -57,9 +56,11 @@ var app = new Vue({
       var albumId = this.playList[this.songIndex].albumId;
       getSongInfo(songOrigin, hash, albumId, (res) => {
         var { song, lyric, album } = res;
+        if (song.hash != that.playListHash[this.songIndex]) return;
         that.player.src = song.url;
         $('#albumImg').attr('src', album.album1v1Url);
         
+        this.loadingSong = false;
         that.player.oncanplay = function() {
           that.player.oncanplay = null;
           that.prepareLyrics(lyric.lyric);
@@ -69,7 +70,6 @@ var app = new Vue({
     },
     prepareLyrics: function(lyrics) {
       this.loadingLyrics = false;
-      this.loadingSong = false;
       var content = $('#content');
       content.css('top', this.midPos);
 
