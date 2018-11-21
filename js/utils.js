@@ -282,7 +282,8 @@ function getSongInfo(songOrigin, hash, albumId, callback) {
   }
   params.origin = songOrigin;
   $.get(CONFIG.getUrl, params, (res) => {
-    res = parseSongInfo(songOrigin, res)
+    res = parseSongInfo(songOrigin, res);
+    res.song.hash = hash;
     callback(res);
   }, CONFIG.dataType);
 }
