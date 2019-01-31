@@ -1,218 +1,199 @@
 'use strict';
+Vue.config.devtools = true;
 var app = new Vue({
   el: '#app',
   data: {
-    currentHash: '',
+    lastVersion: '1.1',
+    version: '',
+    songInfo: {},
+    songList: [], // play list
+    songIdList: [], // play list of id
+    listenHistory: [],
+    result: {}, // search result of current origin
+    allResult: {}, // all search result
     playMode: 0,
-    scrollbar: 0, // 播放列表进度条
-    tabScrollBar: 0, // 搜索结果进度条
-    midPos: 0,
-    mouseFlag: 0,
-    mouseTarget: 0,
-    loadingList: false, 
-    loadingLyrics: false,
-    loadingSong: false,
-    noResult: true,
-    activeLrc: 0, // 当前活跃的歌词序号
-    interval: 0, // 间隔1秒更新播放时间和进度条位置
-    pageSize: 20, // 每次加载的歌曲数量
-    player: null, // audio元素
-    currentTime: 0,
-    duration: 0, 
-    volume: 1, 
-    songIndex: 0,
-    searchResult: {}, // 各个音乐源的搜索结果
-    listInfo: {}, // 各个音乐源搜索结果的页数和总数量
-    lyricArr: [], // 歌词内容数组
-    timeArr: [], // 歌词时间数组
-    playList: [],
-    playListHash: [],
-    currentOrigin: CONFIG.defaultOrigin,
-    originMap: CONFIG.originMap,
+    playIndex: 0, 
+    volume: 0.5, 
+    keyword: '',
+    origins: CONFIG.origins,
+    origin: CONFIG.defaultOrigin,
+    pageSize: 20,
+    currentTime: 0, // currentTime of the audio
+    player: null, // audio element
+    status: {
+      searching: false, 
+      loadingSong: false,
+      noResult: true,
+    },
+    lyric: {
+      sentences: [], // lyric sentences
+      times: [], // lyric time array
+      activeLrcIndex: 0,
+    },
+    api: {
+      search: null,
+      retrieval: null,
+    },
+    storageList: [
+      'songList', 'playIndex', 'playMode', 'volume', 'version', 'keyword', 'origin',
+    ],
+    mouseParam: {
+      flag: 0,
+      target: 0,
+    },
   },
   methods: {
-    getSong: function(hash, autoplay = true) {
-      if (hash == this.currentHash) {
+    retrieve: async function(songId, autoplay = true) {
+      if (songId == this.songInfo.songId) {
         this.player.currentTime = 0;
         this.player.play();
         return;
       }
-      this.currentHash = hash;
-      this.timeArr = [];
-      this.lyricArr = [];
-      this.loadingLyrics = true;
-      this.loadingSong = true;
-      this.addToList(hash);
-      this.songIndex = $.inArray(hash, this.playListHash);
-      this.setLocal();
+      this.lyric.times = [];
+      this.lyric.sentences = [];
+      this.status.loadingSong = true;
+      this.addToList(songId);
+      this.playIndex = this.songIdList.indexOf(songId);
+      this.setLocal('playIndex');
+      this.songInfo = this.songList[this.playIndex];
       this.currentTime = 0;
-      this.duration = this.playList[this.songIndex].length;
       this.player.paused || this.player.pause();
       this.scrollToSong();
       $('#control .glyphicon-pause').toggleClass('glyphicon-play').toggleClass('glyphicon-pause');
 
+      var song = await this.api.retrieval.retrieve(this.songInfo, 'song');
+      if (song.songId != this.songIdList[this.playIndex]) return;
+      this.player.src = song.url;
+      this.listenHistory.push(song.songId);
+
       var that = this;
-      var songOrigin = this.playList[this.songIndex].songOrigin;
-      var albumId = this.playList[this.songIndex].albumId;
-      getSongInfo(songOrigin, hash, albumId, (res) => {
-        var { song, lyric, album } = res;
-        if (song.hash != that.playListHash[this.songIndex]) return;
-        that.player.src = song.url;
-        $('#albumImg').attr('src', album.album1v1Url);
-        
-        this.loadingSong = false;
-        that.player.oncanplay = function() {
-          that.player.oncanplay = null;
-          that.prepareLyrics(lyric.lyric);
-          autoplay && (that.player.play(), $('#control .glyphicon-play').toggleClass('glyphicon-play').toggleClass('glyphicon-pause'));
-        };
-      });
+      this.player.oncanplay = async function() {
+        that.player.oncanplay = null;
+        autoplay && (that.player.play(), $('#control .glyphicon-play').toggleClass('glyphicon-play').toggleClass('glyphicon-pause'));
+        var lyric = await that.api.retrieval.retrieve(that.songInfo, 'lyric');
+        that.prepareLyrics(lyric.lyric || that.songInfo.lyric);
+      };
+
+      var album = await this.api.retrieval.retrieve(this.songInfo, 'album');
+      $('#albumImg').attr('src', album.album1v1Url || this.songInfo.album1v1Url || 'images/record.png');
+      
+      
     },
     prepareLyrics: function(lyrics) {
-      this.loadingLyrics = false;
+      this.status.loadingSong = false;
       var content = $('#content');
       content.css('top', this.midPos);
 
       lyrics = lyrics.trim() || '[00:00.00]找不到歌词';
-
       var sentences = lyrics.split('\n');
-      for (var i in sentences) {
-        if (!sentences[i]) continue;
-        
-        var times = sentences[i].match(/\d+:\d+\.\d+/g);
+      for (var sentence of sentences) {
+        if (!sentence) continue;
+
+        sentence = sentence.split(/<\d+>/).join(''); // convert trc to lrc
+        var times = sentence.match(/\d+:\d+\.\d+/g);
         if (!times) continue
-        var sentence = sentences[i].substr(sentences[i].lastIndexOf(']') + 1);
+        sentence = sentence.substr(sentence.lastIndexOf(']') + 1);
         if (!sentence.trim()) continue
-      
+        // handle abbreviated lrc like [00:03.124][01:02.437]xxx
         for (var each of times) {
           var time = each.split(':');
           var sum = Number(time[0]) * 60 + Number(time[1]) || 0;
           sum = sum > 0.2 ? sum - 0.2 : sum;
-          var loc = locationOf(sum, this.timeArr);
-          insert(sum, this.timeArr);
-          this.lyricArr.splice(loc + 1, 0, sentence);
+          var loc = locationOf(sum, this.lyric.times);
+          insert(sum, this.lyric.times);
+          this.lyric.sentences.splice(loc + 1, 0, sentence);
         }
       }
-      setTimeout("$('#content').children(':first-child').addClass('activelrc')", 0);
+      doAsync("$('#content').children(':first-child').addClass('activelrc')");
     },
-    addToList: function(hash) {
-      if ($.inArray(hash, this.playListHash) > -1) return;
-      for (var song of this.searchResult[this.currentOrigin]) {
-        if (song.hash == hash) {
-          this.playList.push(song);
-          this.playListHash.push(hash);
-          setTimeout(this.scrollbar.resize, 0);
-          this.setLocal();
+    addToList: function(songId) {
+      if (this.songIdList.indexOf(songId) > -1) return;
+      for (var song of this.result.songs) {
+        if (song.songId == songId) {
+          this.songList.push(song);
+          this.songIdList.push(songId);
+          doAsync(this.playListScrollBar.resize);
+          this.setLocal('songList');
           break;
         }
       }
     },
-    removeFromList: function(hash) {
-      var i = $.inArray(hash, this.playListHash);
+    removeFromList: function(songId) {
+      var i = this.songIdList.indexOf(songId);
       if (i < 0) return;
-      this.playList.splice(i, 1);
-      this.playListHash.splice(i, 1);
-      setTimeout(this.scrollbar.resize, 0);
-      if (this.songIndex == i) {
-        this.getSong(this.playListHash[i < this.playListHash.length ? i : 0], !this.player.paused);
+      this.songList.splice(i, 1);
+      this.songIdList.splice(i, 1);
+      doAsync(this.playListScrollBar.resize);
+      if (this.playIndex == i) {
+        this.retrieve(this.songIdList[i < this.songIdList.length ? i : 0], !this.player.paused);
       } else {
-        this.songIndex = $.inArray(this.currentHash, this.playListHash);
+        this.playIndex = this.songIdList.indexOf(this.songInfo.songId);
       }
-      this.setLocal();
+      this.setLocal('songList');
     },
-    search: function(page, pageSize, force=false) {
-      var keyword = $('#searchBar input').val().trim();
-      if (!keyword) {
-        this.$set(this.searchResult, this.currentOrigin, []);
-        this.listInfo[this.currentOrigin].page = 1;
-        this.loadingList = false;
-        this.noResult = true;
+    search: function(page, force=false) {
+      this.setLocal('keyword,origin');
+      if (!this.keyword) {
+        this.$set(this.result, 'songs', []);
+        this.result.page = 1;
+        this.status.searching = false;
+        this.status.noResult = true;
         return;
       }
 
-      this.noResult = false;
-      pageSize = pageSize || this.pageSize;
-      page = page || 1;
-      if (force || keyword != this.listInfo[this.currentOrigin].keyword) {
-        this.$set(this.searchResult, this.currentOrigin, []);
-      } else if(page != this.listInfo[this.currentOrigin].page + 1) {
+      page = page || this.result.page + 1;
+      this.status.noResult = false;
+      if (force || this.keyword != this.result.keyword) {
+        this.$set(this.result, 'songs', []);
+      } else if(page != this.result.page + 1) {
         return;
       }
 
-      var that = this;
-      searchSong(this.currentOrigin, keyword, page, pageSize, (res) => that.prepareResult(res.data, keyword, page));
+      this.api.search.search(this.origin, this.keyword, page, this.pageSize)
+        .then((res) => this.prepareResult(res, page));
     },
-    convertResult: function (data) {
-      var searchResult = [];
-      var songInfos = data.info;
-      for (var i in songInfos) {
-        var { 
-            songname: songName, 
-            singername: singerName, 
-            filename: fileName, 
-            duration: length, 
-            album_id: albumId, 
-            hash, 
-          } = songInfos[i];
-        searchResult.push({
-          songName,
-          singerName,
-          fileName,
-          length,
-          hash,
-          albumId,
-          time: this.convertToTime(length),
-          songOrigin: this.currentOrigin,
-        });
-      }
-      return searchResult;
-    },
-    prepareResult: function(data, keyword, page) {
-      var result = this.convertResult(data);
-      if (page == this.listInfo[this.currentOrigin].page + 1) {
-        var newResult = this.searchResult[this.currentOrigin].concat(result);
-        this.$delete(this.searchResult, this.currentOrigin);
-        this.$set(this.searchResult, this.currentOrigin, newResult);
+    prepareResult: function(data, page) {
+      if (page == this.result.page + 1) {
+        var newResult = this.result.songs.concat(data.songs);
+        this.$delete(this.result, 'songs');
+        this.$set(this.result, 'songs', newResult);
       } else {
         $('.tab-content').scrollTop(0);
-        this.$delete(this.searchResult, this.currentOrigin);
-        this.$set(this.searchResult, this.currentOrigin, result);
+        this.$delete(this.result, 'songs');
+        this.$set(this.result, 'songs', data.songs);
       }
-      this.listInfo[this.currentOrigin].page = page;
-      this.listInfo[this.currentOrigin].keyword = keyword;
-      this.loadingList = false;
-      this.noResult = this.searchResult[this.currentOrigin].length == 0;
-      setTimeout(this.tabScrollBar.resize, 0);
+      this.result.page = page;
+      this.result.keyword = this.keyword;
+      this.status.searching = false;
+      this.status.noResult = data.songs.length < this.pageSize;
+      doAsync(this.searchResultScrollBar.resize);
     },
-    convertToTime: function(length) {
-      length = parseInt(length);
-      var div = Math.floor(length / 60) || 0,
-        mod = length % 60 || 0;
+    convertTime: function(time) {
+      time = parseInt(time);
+      var div = Math.floor(time / 60) || 0,
+        mod = time % 60 || 0;
       div = div > 9 ? div : '0' + div;
       mod = mod > 9 ? mod : '0' + mod;
       return div + ':' + mod;
     },
     setScroll: function(another) {
-      clearInterval(this.interval);
-      this.interval = setInterval('app.autoProgress()', 1000);
-      this.scrollLyrics();
-    },
-    clearScroll: function() {
-      $('#content').stop(true, true);
-      clearInterval(this.interval);
-    },
-    scrollLyrics: function() {
-      clearInterval(this.f);
-      this.f = setInterval(() => {
+      clearInterval(this.proInterval);
+      this.proInterval = setInterval('app.autoProgress()', 1000);
+      clearInterval(this.lrcInterval);
+      this.lrcInterval = setInterval(() => {
         this.moveLyrics();
       }, 200);
     },
+    clearScroll: function() {
+      $('#content').stop(true, true);
+      clearInterval(this.proInterval);
+    },
     moveLyrics: function(imme = false) {
-      var i = locationOf(this.player.currentTime, this.timeArr);;
-      if (this.activeLrc == i) {
+      var i = locationOf(this.player.currentTime, this.lyric.times);
+      if (this.lyric.activeLrcIndex == i) {
         return;
       }
-      this.activeLrc = i;
+      this.lyric.activeLrcIndex = i;
       var content = $('#content');
       var ele = content.children(`:nth-child(${ i + 1 })`);
       var offset = ele.offset().top - this.midPos;
@@ -226,28 +207,27 @@ var app = new Vue({
       });
     },
     backward: function(force = false) {
-      var next = this.songIndex;
-      (this.playMode == 0 || this.playMode == 1 && force === true) && (next = (next - 1 + this.playListHash.length) % this.playListHash.length);
-      this.playMode == 2 && (next = this.getNextRandom(next));
-      this.getSong(this.playListHash[next]);
+      var next = this.playIndex;
+      (this.playMode == 0 || this.playMode == 1 && force === true) && (next = (next - 1 + this.songIdList.length) % this.songIdList.length);
+      this.playMode == 2 && (next = this.getNextRandom());
+      this.retrieve(this.songIdList[next]);
     },
     forward: function(force = false) {
-      var next = this.songIndex;
-      (this.playMode == 0 || this.playMode == 1 && force === true) && (next = (next + 1) % this.playListHash.length);
-      this.playMode == 2 && (next = this.getNextRandom(next));
-      this.getSong(this.playListHash[next]);
+      var next = this.playIndex;
+      (this.playMode == 0 || this.playMode == 1 && force === true) && (next = (next + 1) % this.songIdList.length);
+      this.playMode == 2 && (next = this.getNextRandom());
+      this.retrieve(this.songIdList[next]);
     },
-    getNextRandom: function(index) {
-      var next = index;
-      if (this.playList.length > 1) {
-        while (next == index) {
-          next = Math.floor(Math.random() * this.playListHash.length);
-        }
-      }
+    getNextRandom: function() {
+      var half = Math.floor(this.songIdList.length / 2);
+      var recentHistory = this.listenHistory.slice(Math.max(this.listenHistory.length - half, 0));
+      var restSong = this.songIdList.filter(songId => recentHistory.indexOf(songId) == -1);
+      var index = Math.floor(Math.random() * restSong.length);
+      var next = this.songIdList.indexOf(restSong[index]);
       return next;
     },
     scrollToSong: function () {
-      var playing = $('tr:nth-child(' + (this.songIndex + 1) + ')');
+      var playing = $('tr:nth-child(' + (this.playIndex + 1) + ')');
       if (!playing.length) return;
 
       var scroll = $('.scroll-table');
@@ -264,15 +244,14 @@ var app = new Vue({
     },
     changeMode: function() {
       this.playMode = (this.playMode + 1) % 3;
-      this.setLocal();
+      this.setLocal('playMode');
     },
     correct: function() {
       this.player.paused ? $('#control .glyphicon-pause').toggleClass('glyphicon-play').toggleClass('glyphicon-pause') : $('#control .glyphicon-play').toggleClass('glyphicon-play').toggleClass('glyphicon-pause');
     },
     autoProgress: function() {
       this.currentTime = this.player.currentTime;
-      this.duration = this.player.duration;
-      var percent = this.currentTime / this.duration;
+      var percent = this.currentTime / this.songInfo.time;
       var width = percent * parseInt($('.progress-all').css('width').slice(0, -2));
       $('._progress').css('width', width);
       $('.pro-pointer').css('left', width - 10);
@@ -285,7 +264,7 @@ var app = new Vue({
       $('._progress').css('width', width);
       $('.pro-pointer').css('left', width - 10);
       var percent = width / maxWidth;
-      this.player.currentTime = this.currentTime = Math.floor(percent * this.duration);
+      this.player.currentTime = this.currentTime = Math.floor(percent * this.songInfo.time);
     },
     setVolume: function(e, perc = null) {
       var width, percent;
@@ -302,7 +281,7 @@ var app = new Vue({
       $('.volume-progress').css('width', width);
       $('.volume-pointer').css('left', width - 10);
       this.player.volume = this.volume = percent;
-      this.setLocal();
+      this.setLocal('volume');
     },
     shutVolume: function() {
       player.volume = player.volume == 0 ? this.volume : 0;
@@ -313,88 +292,101 @@ var app = new Vue({
     },
     proDown: function(e) {
       if ($(e.target).isChildAndSelfOf('.pro-pointer')) {
-        clearInterval(this.f);
-        this.mouseFlag = 1;
-        this.mouseTarget = $('.pro-pointer')[0];
-        this.player.paused || (this.mouseFlag = 2, this.toggle());
+        clearInterval(this.lrcInterval);
+        this.mouseParam.flag = 1;
+        this.mouseParam.target = $('.pro-pointer')[0];
+        this.player.paused || (this.mouseParam.flag = 2, this.toggle());
       } else if ($(e.target).isChildAndSelfOf('.volume-pointer')) {
-        this.mouseFlag = 1;
-        this.mouseTarget = $('.volume-pointer')[0];
+        this.mouseParam.flag = 1;
+        this.mouseParam.target = $('.volume-pointer')[0];
       }
     },
     proUp: function(e) {
-      if (this.mouseFlag == 2) {
+      if (this.mouseParam.flag == 2) {
         this.toggle();
       }
-      this.mouseFlag = 0;
+      this.mouseParam.flag = 0;
     },
     proMove: function(e) {
-      if (this.mouseFlag > 0) {
-        if (this.mouseTarget == $('.pro-pointer')[0]) {
+      if (this.mouseParam.flag > 0) {
+        if (this.mouseParam.target == $('.pro-pointer')[0]) {
           this.setProgress(e);
-        } else if (this.mouseTarget == $('.volume-pointer')[0]) {
+        } else if (this.mouseParam.target == $('.volume-pointer')[0]) {
           this.setVolume(e);
         }
       }
     },
-    getLocal: function() {
-      this.songIndex = JSON.parse(window.localStorage.getItem('songIndex')) || 0;
-      this.playMode = JSON.parse(window.localStorage.getItem('playMode')) || 0;
-      this.volume = JSON.parse(window.localStorage.getItem('volume')) || 1;
-      this.playList = JSON.parse(window.localStorage.getItem('playList')) || [];
-      for (var songInfo of this.playList) {
-        this.playListHash.push(songInfo.hash);
-      }
-    },
-    setLocal: function() {
-      window.localStorage.setItem('songIndex', JSON.stringify(this.songIndex));
-      window.localStorage.setItem('playMode', JSON.stringify(this.playMode));
-      window.localStorage.setItem('volume', JSON.stringify(this.volume));
-      window.localStorage.setItem('playList', JSON.stringify(this.playList));
-    },
-    setOrigin: function(e) {
-      this.currentOrigin = e.target.dataset.origin;
-      this.search();
-      setTimeout(this.tabScrollBar.resize, 0);
-    },
-    toTop: function () {
+    toTop: function() {
       $('.tab-content').scrollTop(0);
     },
+    getLocal: function() {
+      this.storageList.forEach(item => {
+        try {
+          this[item] = JSON.parse(localStorage.getItem(item)) || this[item];
+        } catch (e) {}
+      });
+      this.songIdList = this.songList.map(song => song.songId);
+      // clear songList if current version isn't the last version
+      if (this.version != this.lastVersion) {
+        this.songList = [];
+        this.version = this.lastVersion;
+        localStorage.clear();
+        this.setLocal();
+      }
+    },
+    setLocal: function(keys) {
+      if (keys) {
+        keys.split(',').forEach(item => {
+          localStorage.setItem(item, JSON.stringify(this[item]));
+        });
+      } else {
+        this.storageList.forEach(item => {
+          localStorage.setItem(item, JSON.stringify(this[item]));
+        });
+      }
+    },
+    setOrigin: function(event, origin = null) {
+      this.origin = origin || event.target.dataset.origin;
+      this.result = this.allResult[this.origin];
+      this.search(1);
+      doAsync(this.searchResultScrollBar.resize);
+    },
     init: function() {
+      this.api.search = new Search();
+      this.api.retrieval = new Retrieval();
       this.player = $('#player')[0];
-      this.scrollbar = $('.scroll-table').niceScroll({ touchbehavior: false });
-      this.tabScrollBar = $('.tab-content').niceScroll({ touchbehavior: false });
+      this.playListScrollBar = $('.scroll-table').niceScroll({ touchbehavior: false });
+      this.searchResultScrollBar = $('.tab-content').niceScroll({ touchbehavior: false });
       this.pageSize = 20;
       this.midPos = parseInt($('#panel').css('height').slice(0, -2)) / 2 - 10;
       this.getLocal();
       this.setVolume(null, this.volume);
-      this.playList.length > 0 && 
-        (this.getSong(this.playListHash[this.songIndex], false), setTimeout(this.scrollToSong, 300));
-      for(var key in this.originMap) {
-        this.listInfo[key] = {
+      this.songList.length > 0 && this.retrieve(this.songIdList[this.playIndex], false);
+      for(var item of this.origins) {
+        this.allResult[item.name] = {
           page: 0,
           keyword: '',
+          songs: [],
         };
-        this.searchResult[key] = [];
       }
+      this.setOrigin(null, this.origin);
+      $('[href="#' + this.origin + '"]').click();
 
-      $('[href="#' + this.currentOrigin + '"]').trigger('click');
-
-      // 音量控制
+      // volume control
       $(document).keyup((e) => {
         switch (e.keyCode) {
-          case 38: // 上方向
+          case 38: // up
             this.setVolume(null, Math.min(1, this.volume + 0.05));
             break;
-          case 40: // 下方向
+          case 40: // down
             this.setVolume(null, Math.max(0, this.volume - 0.05));
             break;
         }
       });
 
       var io = new IntersectionObserver(entries => {
-        entries[0].intersectionRatio > 0.005 && app.searchResult[app.currentOrigin].length != 0
-         && this.search(this.listInfo[this.currentOrigin].page + 1);
+        entries[0].intersectionRatio > 0.005 && app.result.songs.length != 0
+         && this.search();
       });
       $('.loading').each((i, el) => io.observe(el));
     },
@@ -408,7 +400,7 @@ function init () {
     }
   });
 
-  // 专辑图片旋转
+  // album image rotate
   var albumImg = $('#albumImg');
   albumImg.count = 0;
   setInterval(() => {

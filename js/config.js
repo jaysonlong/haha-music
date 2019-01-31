@@ -1,16 +1,28 @@
 const CONFIG = {
   searchUrl: 'search.php',
+  
+  retrieveUrl: 'retrieve.php',
 
-  getUrl: 'getSongInfo.php',
+  origins: [
+    {
+      name: 'kugou',
+      displayName: '酷狗',
+    },
+    {
+      name: 'wangyi',
+      displayName: '网易',
+    },
+    {
+      name: 'xiami',
+      displayName: '虾米',
+    },
+    {
+      name: 'qq',
+      displayName: 'QQ',
+    },
+  ],
 
-  originMap: {
-    'kugou': '酷狗',
-    '163': '网易',
-    'qq': 'QQ',
-    'xiami': '虾米',
-  },
-
-  dataType: 'json',
+  type: 'json', // json or jsonp
 
   default163Br: 320000,
 

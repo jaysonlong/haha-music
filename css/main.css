@@ -278,11 +278,6 @@ input.form-control:focus {
   text-align: center;
   border: 0;
 }
-#searchBar .list-group-item.no-result {
-  position: absolute;
-  top: 50%;
-  margin-top: -20px;
-}
 #searchBar .list-group-item.search-result:hover {
   background: rgba(255,255,255,.3);
   cursor: pointer;

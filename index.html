@@ -16,12 +16,12 @@
         <div v-show="playList.length == 0" class="empty-list">列表为空</div>
         <table class="table table-hover">
           <tbody v-cloak>
-            <tr v-for="(song, index) in playList" @click="getSong(song.hash)" :title="song.fileName" :class="playListHash[songIndex] == song.hash ? 'playing' : ''">
-              <td><img class="origin-icon" :src="'images/' + song.songOrigin + '.png'"><span>{{index + 1 + ' - ' + song.fileName}}</span></td>
+            <tr v-for="(song, index) in songList" @click="retrieve(song.songId)" :title="song.fileName" :class="songIdList[playIndex] == song.songId ? 'playing' : ''">
+              <td><img class="origin-icon" :src="'images/' + song.origin + '.png'"><span>{{ index + 1 + ' - ' + song.fileName }}</span></td>
               <td>
-                <span class="glyphicon glyphicon-trash" @click.stop="removeFromList(song.hash)"></span>
+                <span class="glyphicon glyphicon-trash" @click.stop="removeFromList(song.songId)"></span>
               </td>
-              <td>{{song.time}}</td>
+              <td>{{ convertTime(song.time) }}</td>
             </tr>
           </tbody>
         </table>
@@ -31,38 +31,38 @@
       <div class="row">
         <div class="shadow"></div>
         <div id="content" v-cloak>
-          <p v-for="(lyric, i) in lyricArr">
+          <p v-for="(lyric, i) in lyric.sentences">
             {{ lyric }}
           </p>
-          <p v-show="loadingLyrics" class="getting-res">获取资源中......</p>
+          <p v-show="status.loadingSong" class="getting-res">获取资源中......</p>
         </div>
       </div>
     </div>
     <div id="searchBar" class="col-md-3" v-cloak>
       <div class="input-group">
-        <input class="form-control" type="search" placeholder="搜索歌曲" @keyup.enter="search('','',true)"/>
+        <input class="form-control" type="search" v-model.trim="keyword" placeholder="搜索歌曲" @keyup.enter="search(1,true)"/>
         <span class="input-group-btn">
-          <button class="btn btn-default" type="button" @click="search('','',true)"><span class="glyphicon glyphicon-search" aria-hidden="true"></span></button>
+          <button class="btn btn-default" type="button" @click="search(1,true)"><span class="glyphicon glyphicon-search" aria-hidden="true"></span></button>
         </span>
       </div>
       <ul id="myTab" class="nav nav-tabs">
-        <li v-for="(originName, origin) in originMap">
-          <a @click="setOrigin" :data-origin="origin" :href="'#' + origin" data-toggle="tab"> <img :data-origin="origin" :src="'images/' + origin + '.png'" alt="">{{ originName }}
+        <li v-for="item in origins">
+          <a @click="setOrigin" :data-origin="item.name" :href="'#' + item.name" data-toggle="tab"> <img :data-origin="item.name" :src="'images/' + item.name + '.png'" alt="">{{ item.displayName }}
           </a>
         </li>
       </ul>
       <div class="tab-container">
-        <span v-show="!noResult" id="top" @click="toTop" class="glyphicon glyphicon-chevron-up"></span>
+        <span v-show="!status.noResult" id="top" @click="toTop" class="glyphicon glyphicon-chevron-up"></span>
         <div class="tab-content">
-          <ul class="list-group tab-pane fade in" v-for="(originName, origin) in originMap" :id="origin">
-            <li class="list-group-item search-result" v-for="songInfo in searchResult[origin]"
-             @click="getSong(songInfo.hash)" :title="songInfo.fileName">
+          <ul class="list-group tab-pane fade in" v-for="item in origins" :id="item.name">
+            <li class="list-group-item search-result" v-for="songInfo in result.songs"
+             @click="retrieve(songInfo.songId)" :title="songInfo.fileName">
               <a href="javascript:void(0);">{{ songInfo.fileName }}</a>
-              <span @click.stop="addToList(songInfo.hash)" class="fr glyphicon glyphicon-plus"></span>
-              <span class="fr time-tip">{{ songInfo.time }}</span>
+              <span @click.stop="addToList(songInfo.songId)" class="fr glyphicon glyphicon-plus"></span>
+              <span class="fr time-tip">{{ convertTime(songInfo.time) }}</span>
             </li>
-            <li v-show="!noResult" class="list-group-item loading" style="text-align: center;">加载中......</li>
-            <li v-show="noResult"  class="list-group-item no-result" style="text-align: center;">没有找到搜索结果</li>
+            <li v-show="!status.noResult" class="list-group-item loading" style="text-align: center;">加载中......</li>
+            <li v-show="status.noResult"  class="list-group-item no-result" style="text-align: center;">没有更多了</li>
           </ul>
         </div>
       </div>
@@ -84,8 +84,8 @@
       </div>
       <div class="info">
         <img id="albumImg" src="images/record.png"/>
-        <div class="song-name" v-cloak>{{playList[songIndex] ? playList[songIndex].fileName : ''}}</div>
-        <div class="timer" v-cloak>{{convertToTime(currentTime)}}/{{convertToTime(duration)}}</div>
+        <div class="song-name" v-cloak>{{ songInfo ? songInfo.fileName : '' }}</div>
+        <div class="timer" v-cloak>{{ convertTime(currentTime) + '/' + convertTime(songInfo.time) }}</div>
         <div class="progress-all no-select" @click="setProgress">
           <div class="_progress"></div>
           <img class="pro-pointer" src="images/volume.png" @dragstart.prevent/>
@@ -108,11 +108,12 @@
   <script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
   <script src="https://cdn.bootcss.com/twitter-bootstrap/3.3.7/js/bootstrap.min.js"></script>
   <script src="https://cdn.bootcss.com/jquery.nicescroll/3.7.6/jquery.nicescroll.min.js"></script>
-  <script src="js/config.js"></script>
   <script src="js/crypto-js.min.js"></script>
-  <script src="js/rsa.min.js"></script>
-  <script src="js/abroad.js"></script>
-  <script src="js/cookie.js"></script>
+  <script src="js/wangyi/rsa.min.js"></script>
+  <script src="js/wangyi/abroad.js"></script>
+  <script src="js/wangyi/cookie.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
   <script src="js/utils.js"></script>
   <script src="js/main.js"></script>
 </body>
