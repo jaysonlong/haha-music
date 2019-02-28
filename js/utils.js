@@ -29,6 +29,15 @@ function getData(url, params, type) {
   });
 }
 
-function doAsync(task) {
-  setTimeout(task, 0);
+function doAsync(task, time=0) {
+  setTimeout(task, time);
+}
+
+function showTip(tip, time = 1500, color = 'white', background = 'rgba(255,193,7,0.6)') {
+  var $tip = $('<strong style="position:fixed;top:200px;left:50%;display:none;z-index:9999;font-size:17px;font-weight:600;padding:10px;border-radius:5px">');
+  $tip.css('color', color);
+  $tip.css('background', background);
+  $('body').append($tip);
+  $tip.text(tip).css('margin-left', - $tip.outerWidth() / 2)
+    .fadeIn(time).delay(1000).fadeOut(500, () => $tip.remove());
 }

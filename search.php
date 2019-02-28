@@ -55,7 +55,7 @@ class Search
         $_config = $this->config[$this->origin];
         $params = $this->params;
         $url = sprintf($_config['search_url'], $params['keyword'], $params['page'], $params['pagesize']);
-        return request($url);
+        return http_request($url);
     }
 
     /**
@@ -66,7 +66,7 @@ class Search
         $_config = $this->config[$this->origin];
         $params = $this->params;
         $url = sprintf($_config['search_url'], $params['keyword'], $params['page'], $params['pagesize']);
-        $result = substr(request($url), 3, -1);
+        $result = substr(http_request($url), 3, -1);
         return $result;
     }
 
@@ -81,7 +81,7 @@ class Search
             'params' => $params['params'],
             'encSecKey' => $params['encSecKey']
         );
-        $result = request($_config['search_url'], $data);
+        $result = http_request($_config['search_url'], $data);
         return $result;
     }
 
@@ -95,14 +95,14 @@ class Search
 
         $cookie = load_cookie($_config['cookie_file']);
         $url = $this->compute_xiami_url($cookie);
-        $result = request($url, [], $cookie);
+        $result = http_request($url, [], $cookie);
         
         $data = json_decode($result, true);
         if ($data['code'] != 'SUCCESS') {
             global $resp_header;
             $cookie = save_cookie($resp_header, $_config['cookie_file'], $_config['cookie_pattern']);
             $url = $this->compute_xiami_url($cookie);
-            $result = request($url, [], $cookie);
+            $result = http_request($url, [], $cookie);
         }
         return $result;
     }

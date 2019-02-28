@@ -24,7 +24,13 @@ const CONFIG = {
 
   type: 'json', // json or jsonp
 
-  default163Br: 320000,
+  defaultWangyiBr: 320000,
 
   defaultOrigin: 'kugou',
+
+  defaultAlbum: 'images/record.png',
+
+  defaultLyric: '没有找到歌词，请欣赏',
+
+  paymentTip: '因版权要求，该音乐为付费音乐',
 };

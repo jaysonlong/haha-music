@@ -3,7 +3,7 @@ Vue.config.devtools = true;
 var app = new Vue({
   el: '#app',
   data: {
-    lastVersion: '1.1',
+    lastVersion: '1.0',
     version: '',
     songInfo: {},
     songList: [], // play list
@@ -43,10 +43,12 @@ var app = new Vue({
     },
   },
   methods: {
-    retrieve: async function(songId, autoplay = true) {
-      if (songId == this.songInfo.songId) {
-        this.player.currentTime = 0;
-        this.player.play();
+    retrieve: async function(songId, autoplay = true, force = false) {
+      if (!force && songId == this.songInfo.songId) {
+        if (!this.songInfo.pay) {
+          this.player.currentTime = 0;
+          this.player.play();
+        }
         return;
       }
       this.lyric.times = [];
@@ -59,33 +61,50 @@ var app = new Vue({
       this.currentTime = 0;
       this.player.paused || this.player.pause();
       this.scrollToSong();
+      this.listenHistory.push(songId);
       $('#control .glyphicon-pause').toggleClass('glyphicon-play').toggleClass('glyphicon-pause');
 
-      var song = await this.api.retrieval.retrieve(this.songInfo, 'song');
+      if (this.songInfo.pay) {
+        this.showPayment();
+        return;
+      }
+
+      var song = await this.api.retrieval.retrieve(this.songInfo, 'song', force);
       if (song.songId != this.songIdList[this.playIndex]) return;
+      if (!song.url) {
+        this.showPayment();
+        return;
+      }
       this.player.src = song.url;
-      this.listenHistory.push(song.songId);
 
       var that = this;
       this.player.oncanplay = async function() {
         that.player.oncanplay = null;
         autoplay && (that.player.play(), $('#control .glyphicon-play').toggleClass('glyphicon-play').toggleClass('glyphicon-pause'));
-        var lyric = await that.api.retrieval.retrieve(that.songInfo, 'lyric');
-        that.prepareLyrics(lyric.lyric || that.songInfo.lyric);
+        var lyric = await that.api.retrieval.retrieve(that.songInfo, 'lyric', force);
+        that.prepareLyrics(lyric.lyric);
       };
 
-      var album = await this.api.retrieval.retrieve(this.songInfo, 'album');
-      $('#albumImg').attr('src', album.album1v1Url || this.songInfo.album1v1Url || 'images/record.png');
+      var album = await this.api.retrieval.retrieve(this.songInfo, 'album', force);
+      $('#albumImg').attr('src', album.album1v1Url);
       
-      
+    },
+    showPayment: function() {
+      showTip(CONFIG.paymentTip);
+      $('#albumImg').attr('src', CONFIG.defaultAlbum);
+      this.status.loadingSong = false;
+      if (this.countFreeSong())
+        doAsync(() => this.forward(true), 1000);
     },
     prepareLyrics: function(lyrics) {
       this.status.loadingSong = false;
       var content = $('#content');
       content.css('top', this.midPos);
 
-      lyrics = lyrics.trim() || '[00:00.00]找不到歌词';
-      var sentences = lyrics.split('\n');
+      var sentences = lyrics.trim().split('\n');
+      if (sentences[0].search(/\d+:\d+\.\d+/) == -1)
+        sentences[0] = '[00:00.00]' + sentences[0];
+      
       for (var sentence of sentences) {
         if (!sentence) continue;
 
@@ -125,7 +144,7 @@ var app = new Vue({
       this.songIdList.splice(i, 1);
       doAsync(this.playListScrollBar.resize);
       if (this.playIndex == i) {
-        this.retrieve(this.songIdList[i < this.songIdList.length ? i : 0], !this.player.paused);
+        this.songIdList.length && this.retrieve(this.songIdList[i < this.songIdList.length ? i : 0], !this.player.paused);
       } else {
         this.playIndex = this.songIdList.indexOf(this.songInfo.songId);
       }
@@ -146,10 +165,17 @@ var app = new Vue({
       if (force || this.keyword != this.result.keyword) {
         this.$set(this.result, 'songs', []);
       } else if(page != this.result.page + 1) {
+        this.result.songs.length || (this.status.noResult = true);
         return;
       }
 
-      this.api.search.search(this.origin, this.keyword, page, this.pageSize)
+      this.api.search.search({
+        origin: this.origin, 
+        keyword: this.keyword, 
+        page, 
+        pageSize: this.pageSize, 
+        force,
+      })
         .then((res) => this.prepareResult(res, page));
     },
     prepareResult: function(data, page) {
@@ -207,24 +233,32 @@ var app = new Vue({
       });
     },
     backward: function(force = false) {
+      if (!this.songIdList.length) return;
       var next = this.playIndex;
       (this.playMode == 0 || this.playMode == 1 && force === true) && (next = (next - 1 + this.songIdList.length) % this.songIdList.length);
       this.playMode == 2 && (next = this.getNextRandom());
       this.retrieve(this.songIdList[next]);
     },
     forward: function(force = false) {
+      if (!this.songIdList.length) return;
       var next = this.playIndex;
       (this.playMode == 0 || this.playMode == 1 && force === true) && (next = (next + 1) % this.songIdList.length);
       this.playMode == 2 && (next = this.getNextRandom());
       this.retrieve(this.songIdList[next]);
     },
     getNextRandom: function() {
-      var half = Math.floor(this.songIdList.length / 2);
+      var freeCnt = this.countFreeSong();
+      var half = Math.floor(freeCnt || this.songList.length / 2);
       var recentHistory = this.listenHistory.slice(Math.max(this.listenHistory.length - half, 0));
-      var restSong = this.songIdList.filter(songId => recentHistory.indexOf(songId) == -1);
-      var index = Math.floor(Math.random() * restSong.length);
-      var next = this.songIdList.indexOf(restSong[index]);
+      var restSong = this.songIdList.filter((songId, index) => {
+        return recentHistory.indexOf(songId) == -1 && (!freeCnt || this.songList[index].pay == 0);
+      });
+      var index = restSong.length ? Math.floor(Math.random() * restSong.length) : -1;
+      var next = index != -1 ? this.songIdList.indexOf(restSong[index]) : this.playIndex;
       return next;
+    },
+    countFreeSong: function () {
+      return this.songList.filter(each => each.pay == 0).length;
     },
     scrollToSong: function () {
       var playing = $('tr:nth-child(' + (this.playIndex + 1) + ')');
@@ -240,7 +274,14 @@ var app = new Vue({
       }
     },
     toggle: function() {
-      this.player.paused ? (this.player.play(), $('#control .glyphicon-play').toggleClass('glyphicon-play').toggleClass('glyphicon-pause')) : (this.player.pause(), $('#control .glyphicon-pause').toggleClass('glyphicon-play').toggleClass('glyphicon-pause'));
+      if (!this.songIdList.length || this.songInfo.pay) return;
+      if (this.player.paused) {
+        this.player.play();
+        $('#control .glyphicon-play').toggleClass('glyphicon-play').toggleClass('glyphicon-pause');
+      } else {
+        this.player.pause();
+        $('#control .glyphicon-pause').toggleClass('glyphicon-play').toggleClass('glyphicon-pause');
+      }
     },
     changeMode: function() {
       this.playMode = (this.playMode + 1) % 3;
@@ -325,7 +366,6 @@ var app = new Vue({
           this[item] = JSON.parse(localStorage.getItem(item)) || this[item];
         } catch (e) {}
       });
-      this.songIdList = this.songList.map(song => song.songId);
       // clear songList if current version isn't the last version
       if (this.version != this.lastVersion) {
         this.songList = [];
@@ -333,6 +373,7 @@ var app = new Vue({
         localStorage.clear();
         this.setLocal();
       }
+      this.songIdList = this.songList.map(song => song.songId);
     },
     setLocal: function(keys) {
       if (keys) {
@@ -373,16 +414,16 @@ var app = new Vue({
       $('[href="#' + this.origin + '"]').click();
 
       // volume control
-      $(document).keyup((e) => {
-        switch (e.keyCode) {
-          case 38: // up
-            this.setVolume(null, Math.min(1, this.volume + 0.05));
-            break;
-          case 40: // down
-            this.setVolume(null, Math.max(0, this.volume - 0.05));
-            break;
-        }
-      });
+      $(document).on('keydown', (e) => {
+          switch (e.keyCode) {
+            case 38: // up
+              this.setVolume(null, Math.min(1, this.volume + 0.05));
+              break;
+            case 40: // down
+              this.setVolume(null, Math.max(0, this.volume - 0.05));
+              break;
+          }
+        });
 
       var io = new IntersectionObserver(entries => {
         entries[0].intersectionRatio > 0.005 && app.result.songs.length != 0

@@ -47,7 +47,7 @@ var wangyiEncryption = {
 
   getSongParams(id) {
     let data = {
-      br: CONFIG.default163Br,
+      br: CONFIG.defaultWangyiBr,
       csrf_token: "",
       ids: "[" + id + "]",
     };
@@ -101,17 +101,20 @@ var wangyiEncryption = {
 
 var Search = function() {}
 
-Search.prototype.getParams = function() {
-  var params = { origin: this.origin };
-  Object.assign(params, this.origin == 'wangyi' ? 
-    wangyiEncryption.getSearchParams(this.keyword, this.page, this.pageSize) : 
-    { keyword: this.keyword, page: this.page, pagesize: this.pageSize });
+Search.prototype.getParams = function(searchInfo) {
+  var { origin, keyword, page, pageSize, force } = searchInfo;
+  var params = { origin };
+  force && (params.t = new Date().getTime());
+  Object.assign(params, 
+    origin == 'wangyi' ? wangyiEncryption.getSearchParams(keyword, page, pageSize) : 
+    { keyword, page, pagesize: pageSize });
   return params;
 };
 
-Search.prototype.parseData = function(data) {
+Search.prototype.parseData = function(origin, data) {
   var songs = [], total = 0;
-  switch (this.origin) {
+
+  switch (origin) {
     case 'kugou': 
       songs = data.data.info;
       total = data.data.total;
@@ -125,7 +128,8 @@ Search.prototype.parseData = function(data) {
           albumId: song.album_id,
           album1v1Url: "",
           lyric: "",
-          origin: this.origin,
+          origin: origin,
+          pay: song.privilege == 10,
         }
       });
       break;
@@ -143,12 +147,17 @@ Search.prototype.parseData = function(data) {
           albumId: song.album.mid,
           album1v1Url: "",
           lyric: "",
-          origin: this.origin,
+          origin: origin,
+          pay: song.pay.pay_play == 1,
         }
       });
       break;
 
     case 'xiami':
+      if (!data.result) {
+        showTip('抱歉，虾米好像出了点问题')
+        break;
+      }
       songs = data.result.data.songs;
       total = songs.length;
       songs = songs.map(song => {
@@ -161,13 +170,18 @@ Search.prototype.parseData = function(data) {
           albumId: song.albumId,
           album1v1Url: song.albumLogo,
           lyric: song.lyricInfo && song.lyricInfo.lyricFile || "",
-          origin: this.origin,
+          origin: origin,
+          pay: 0,
         }
       });
       break;
 
     case 'wangyi': 
       wangyiEncryption.decodeAbroad(data);
+      if (data.result.songCount < 1) {
+        songs = [], total = 0;
+        break;
+      }
       songs = data.result.songs;
       total = data.result.songCount;
       songs = songs.map(song => {
@@ -180,7 +194,8 @@ Search.prototype.parseData = function(data) {
           albumId: song.al.id,
           album1v1Url: "",
           lyric: "",
-          origin: this.origin,
+          origin: origin,
+          pay: song.fee == 1,
         }
       });
       break;
@@ -189,14 +204,10 @@ Search.prototype.parseData = function(data) {
   return { songs, total };
 };
 
-Search.prototype.search = async function(origin, keyword, page, pageSize) {
-  this.origin = origin;
-  this.keyword = keyword;
-  this.page = page;
-  this.pageSize = pageSize;
-  var params = this.getParams();
+Search.prototype.search = async function(searchInfo) {
+  var params = this.getParams(searchInfo);
   var data = await getData(CONFIG.searchUrl, params, CONFIG.type);
-  var result = this.parseData(data);
+  var result = this.parseData(searchInfo.origin, data);
   return result;
 }
 
@@ -204,17 +215,17 @@ var Retrieval = function() {
   this.cache = {};
 }
 
-Retrieval.prototype.getParams = function(target) {
-  var params = { origin: this.origin, target };
-  if (this.origin == 'wangyi') {
+Retrieval.prototype.getParams = function(songInfo, target, force) {
+  var params = { origin: songInfo.origin, target };
+  if (songInfo.origin == 'wangyi') {
     target = target.charAt(0).toUpperCase() + target.substr(1);
-    var wangyiParams = wangyiEncryption['get' + target + 'Params'](this.songInfo.songId);
+    var wangyiParams = wangyiEncryption['get' + target + 'Params'](songInfo.songId);
     var cookie = '_ntes_nuid=' + fetch_visitor_hash();
     Object.assign(params, wangyiParams, { cookie });
   } else {
-    Object.assign(params, { songId: this.songInfo.songId, albumId: this.songInfo.albumId });
+    Object.assign(params, { songId: songInfo.songId, albumId: songInfo.albumId });
   }
-
+  force && (params.t = new Date().getTime());
   return params;
 };
 
@@ -230,10 +241,10 @@ Retrieval.prototype.buildQQAlbumUrl = function(albumId) {
   e;
 }
 
-Retrieval.prototype.parseData = async function(data, target) {
+Retrieval.prototype.parseData = async function(songInfo, target, data) {
   var result = {};
 
-  switch (this.origin) {
+  switch (songInfo.origin) {
     case 'kugou':
       result.song = { url: data.data.play_url };
       result.album = { album1v1Url: data.data.img };
@@ -242,9 +253,15 @@ Retrieval.prototype.parseData = async function(data, target) {
 
     case 'qq':
       if (target == 'song') {
-        result.song = { url: 'http://dl.stream.qqmusic.qq.com/' + data.req_0.data.midurlinfo[0].purl };
+        var url = data.req_0.data.midurlinfo[0].purl;
+        if (!url) {
+          var { filename, vkey } = data.req_0.data.midurlinfo[0];
+          var guid = data.req_0.data.testfile2g.match(/guid=(\d+)/)[1];
+          url =  `${filename}?guid=${guid}&vkey=${vkey}&fromtag=`;
+        }
+        result.song = { url: 'http://dl.stream.qqmusic.qq.com/' + url };
       } else if (target == 'album') {
-        result.album = { album1v1Url: this.buildQQAlbumUrl(this.songInfo.albumId) };
+        result.album = { album1v1Url: this.buildQQAlbumUrl(songInfo.albumId) };
       } else if (target == 'lyric') {
         result.lyric = { lyric: base64decode(data.lyric) };
       }
@@ -252,13 +269,15 @@ Retrieval.prototype.parseData = async function(data, target) {
 
     case 'xiami':
       var playInfos = data.result.data.songPlayInfos[0].playInfos.filter(song => song.listenFile != '');
-      result.song = { url: playInfos[playInfos.length-1].listenFile };
-      result.album = { album1v1Url: this.songInfo.album1v1Url || '' };
+      var url = playInfos.length ? playInfos[playInfos.length-1].listenFile : '';
+      result.song = { url };
+      result.album = { album1v1Url: songInfo.album1v1Url || '' };
+      result.lyric =  { lyric: '' };
       try {
-        result.lyric = { lyric: await fetch(this.songInfo.lyric).then(resp => resp.text()) };
-      } finally {
-        result.lyric = result.lyric || { lyric: '' };
-      }
+        result.lyric = { 
+          lyric: songInfo.lyric ? await fetch(songInfo.lyric).then(resp => resp.text()) : '' 
+        };
+      } catch(e) {}
       break;
 
     case 'wangyi':
@@ -277,22 +296,30 @@ Retrieval.prototype.parseData = async function(data, target) {
       break;
   }
 
-  if (target == 'song') {
-    result.song.songId = this.songInfo.songId;
+  if (result.song) {
+    result.song.songId = songInfo.songId;
   }
-  this.cache[this.songInfo.songId] = this.cache[this.songInfo.songId] || {};
-  Object.assign(this.cache[this.songInfo.songId], result);
+  if (result.lyric) {
+    result.lyric.lyric = result.lyric.lyric || songInfo.lyric || CONFIG.defaultLyric;
+  }
+  if (result.album) {
+    result.album.album1v1Url =  result.album.album1v1Url || songInfo.album1v1Url || CONFIG.defaultAlbum;
+  }
+  this.cache[songInfo.songId] = this.cache[songInfo.songId] || {};
+  Object.assign(this.cache[songInfo.songId], result);
   return result[target];
 };
 
-Retrieval.prototype.retrieve = async function(songInfo, target) {
-  if (this.cache[songInfo.songId] && this.cache[songInfo.songId][target]) {
+Retrieval.prototype.retrieve = async function(songInfo, target, force) {
+  if ((!force || target != 'song') && this.cache[songInfo.songId] && this.cache[songInfo.songId][target]) {
     return this.cache[songInfo.songId][target];
   }
-  this.songInfo = songInfo;
-  this.origin = songInfo.origin;
-  var params = this.getParams(target);
+  // if (target == 'song' && songInfo.origin == 'wangyi') return { 
+  //   songId: songInfo.songId, 
+  //   url: 'http://music.163.com/song/media/outer/url?id=' +  songInfo.songId + '.mp3'
+  // }
+  var params = this.getParams(songInfo, target, force);
   var data = await getData(CONFIG.retrieveUrl, params, CONFIG.type);
-  var result = await this.parseData(data, target);
+  var result = await this.parseData(songInfo, target, data);
   return result;
 }

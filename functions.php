@@ -8,35 +8,43 @@
  * @param  string $referer referer header
  * @return string          response body(plain text)
  */
-function request($url, $data = [], $cookie = [], $referer = '') {
-    $method = empty($data) ? 'GET' : 'POST';
-    $data = http_build_query($data);
-    $header = "Content-Type: application/x-www-form-urlencoded\r\n"  . 
-                "User-Agent: Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36" . 
-                (empty($referer) ? '' : "\r\nreferer: $referer");
+function http_request($url, $data = [], $cookie = [], $referer = '')
+{
+    $curl = curl_init();
+    curl_setopt($curl, CURLOPT_URL, $url);
+    curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, false);
+    curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($curl, CURLOPT_HEADER, true);
 
-    $opts = array (
-        'http' => array (
-            'method' => $method,
-            'header' => $header,
-            'content' => $data,
-            'timeout' => 3,
-        )
-    );
+    if (!empty($data)) {
+        curl_setopt($curl, CURLOPT_POST, 1);
+        curl_setopt($curl, CURLOPT_POSTFIELDS, http_build_query($data));
+    }
+    $headers = array();
+    $headers[] = 'Content-Type: application/x-www-form-urlencoded';
+    $headers[] = 'User-Agent: Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36';
+    if (!empty($referer)) {
+        $headers[] = 'referer: '. $referer;
+    }
     if (!empty($cookie)) {
         array_walk($cookie, function(&$value, $key) {
             $value = $key . '=' . $value;
         });
         $cookieStr = implode('; ', $cookie);
-        $opts['http']['header'] .= "\r\nCookie: " . $cookieStr;
+        curl_setopt($curl, CURLOPT_COOKIE, $cookieStr);
     }
+    curl_setopt($curl, CURLOPT_HTTPHEADER, $headers);
     
-    $context = stream_context_create($opts);
-    $resp = file_get_contents($url, false, $context);
+    $resp = curl_exec($curl);
+    $header_size = curl_getinfo($curl, CURLINFO_HEADER_SIZE);
+    curl_close($curl);
     global $resp_header;
-    $resp_header = $http_response_header;
-
-    return $resp;
+    $resp_header = [];
+    $headerStr = substr($resp, 0, $header_size);
+    $resp_header = explode("\r\n", trim($headerStr));
+    $content = substr($resp, $header_size);
+    return $content;
 }
 
 /**
