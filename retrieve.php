@@ -35,7 +35,7 @@ class Retrieval
      * @return string song info
      */
     function retrieve() {
-        $result = '';
+        $result = '{}';
         $method = 'retrieve_' . $this->origin;
         if (!empty($this->origin) && method_exists($this, $method)) {
             $result = call_user_func([$this, $method]);
@@ -55,7 +55,7 @@ class Retrieval
         $_config = $this->config[$this->origin];
         $params = $this->params;
         $url = sprintf($_config['retrieve_url'], $params['songId'], $params['albumId']);
-        return http_request($url);
+        return request($url);
     }
 
     /**
@@ -69,16 +69,12 @@ class Retrieval
         switch ($params['target']) {
             case 'song':
                 $song_url = sprintf($_config['retrieve_song_url'], $params['songId']);
-                $song = http_request($song_url);
-                $song = substr($song, 3, -1);
-                $result = $song;
+                $result = request($song_url);
                 break;
 
             case 'lyric':
                 $lyric_url = sprintf($_config['retrieve_lyric_url'], $params['songId']);
-                $lyric = http_request($lyric_url, [], [], $_config['referer']);
-                $lyric = substr($lyric, 3, -1);
-                $result = $lyric;
+                $result = request($lyric_url, [], [], $_config['referer']);
                 break;
 
             case 'album':
@@ -105,23 +101,23 @@ class Retrieval
         
         switch ($params['target']) {
             case 'song':
-                $song = http_request($_config['retrieve_song_url'], $data, $cookie);
+                $song = request($_config['retrieve_song_url'], $data, $cookie);
                 $data = json_decode($song, true);
                 $data = $data['data'][0];
                 if (empty($data['url'])) {
                     $song_url = sprintf($_config['retrieve_song_backup_url'], $data['id']);
-                    $song = http_request($song_url);
+                    $song = request($song_url);
                 }
                 $result = $song;
                 break;
 
             case 'lyric':
-                $lyric = http_request($_config['retrieve_lyric_url'], $data, $cookie);
+                $lyric = request($_config['retrieve_lyric_url'], $data, $cookie);
                 $result = $lyric;
                 break;
 
             case 'album':
-                $album = http_request($_config['retrieve_album_url'], $data, $cookie);
+                $album = request($_config['retrieve_album_url'], $data, $cookie);
                 $result = $album;
                 break;
         }
@@ -138,14 +134,14 @@ class Retrieval
 
         $cookie = load_cookie($_config['cookie_file']);
         $url = $this->compute_xiami_url($cookie);
-        $result = http_request($url, [], $cookie);
+        $result = request($url, [], $cookie);
 
         $data = json_decode($result, true);
         if ($data['code'] != 'SUCCESS') {
             global $resp_header;
             $cookie = save_cookie($resp_header, $_config['cookie_file'], $_config['cookie_pattern']);
             $url = $this->compute_xiami_url($cookie);
-            $result = http_request($url, [], $cookie);
+            $result = request($url, [], $cookie);
         }
         return $result;
     }

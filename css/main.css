@@ -154,7 +154,7 @@ input.form-control:focus {
 #playList tbody tr:hover td:nth-child(2) span {
   display: inline;
 }
-#playList td:first-child .origin-icon {
+#playList td:first-child .origin-icon, #playList td:first-child .vip {
   position: absolute;
   top: 50%;
   width:20px;
@@ -163,6 +163,7 @@ input.form-control:focus {
 }
 #playList td:first-child span {
   margin-left: 30px;
+  margin-right: 5px;
 }
 .playing {
   background: rgba(255,255,255,.2);
@@ -287,8 +288,16 @@ input.form-control:focus {
   max-width: 70%;
   color: white;
   white-space: nowrap;
-  text-overflow:ellipsis;
-  overflow:hidden;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+#searchBar .list-group-item .vip {
+  position: absolute;
+  top: 50%;
+  width: 20px;
+  height: 20px;
+  margin-top: -12px;
+  margin-left: 5px;
 }
 #searchBar .list-group-item:last-child a {
   color: rgba(255,255,255,.7);

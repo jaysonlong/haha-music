@@ -16,8 +16,8 @@
         <div v-show="playList.length == 0" class="empty-list">列表为空</div>
         <table class="table table-hover">
           <tbody v-cloak>
-            <tr v-for="(song, index) in songList" @click="retrieve(song.songId, true, true)" :title="song.fileName" :class="songIdList[playIndex] == song.songId ? 'playing' : ''">
-              <td><img class="origin-icon" :src="'images/' + song.origin + '.png'"><span>{{ index + 1 + ' - ' + song.fileName }}</span></td>
+            <tr v-for="(song, index) in songList" @click="retrieve(song.songId, true, true)" :title="song.fileName + (song.pay ? ' (付费)' : '')" :class="songIdList[playIndex] == song.songId ? 'playing' : ''">
+              <td><img class="origin-icon" :src="'images/' + song.origin + '.png'"><span>{{ index + 1 + ' - ' + song.fileName }}</span><img v-if="song.pay" src="images/vip.png" class="vip"></td>
               <td>
                 <span class="glyphicon glyphicon-trash" @click.stop="removeFromList(song.songId)"></span>
               </td>
@@ -56,8 +56,9 @@
         <div class="tab-content">
           <ul class="list-group tab-pane fade in" v-for="item in origins" :id="item.name">
             <li class="list-group-item search-result" v-for="songInfo in result.songs"
-             @click="retrieve(songInfo.songId, true, true)" :title="songInfo.fileName">
+             @click="retrieve(songInfo.songId, true, true)" :title="songInfo.fileName + (songInfo.pay ? ' (付费)' : '')">
               <a href="javascript:void(0);">{{ songInfo.fileName }}</a>
+              <img v-if="songInfo.pay" src="images/vip.png" class="vip">
               <span @click.stop="addToList(songInfo.songId)" class="fr glyphicon glyphicon-plus"></span>
               <span class="fr time-tip">{{ convertTime(songInfo.time) }}</span>
             </li>

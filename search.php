@@ -35,7 +35,7 @@ class Search
      * @return string search result
      */
     function search() {
-        $result = '';
+        $result = '{}';
         $method = 'search_' . $this->origin;
         if (!empty($this->origin) && method_exists($this, $method)) {
             $result = call_user_func([$this, $method]);
@@ -55,7 +55,7 @@ class Search
         $_config = $this->config[$this->origin];
         $params = $this->params;
         $url = sprintf($_config['search_url'], $params['keyword'], $params['page'], $params['pagesize']);
-        return http_request($url);
+        return request($url);
     }
 
     /**
@@ -65,8 +65,8 @@ class Search
     private function search_qq() {
         $_config = $this->config[$this->origin];
         $params = $this->params;
-        $url = sprintf($_config['search_url'], $params['keyword'], $params['page'], $params['pagesize']);
-        $result = substr(http_request($url), 3, -1);
+        $url = sprintf($_config['search_url'], url_encode($params['keyword']), $params['page'], $params['pagesize']);
+        $result = request($url);
         return $result;
     }
 
@@ -81,7 +81,7 @@ class Search
             'params' => $params['params'],
             'encSecKey' => $params['encSecKey']
         );
-        $result = http_request($_config['search_url'], $data);
+        $result = request($_config['search_url'], $data);
         return $result;
     }
 
@@ -95,14 +95,14 @@ class Search
 
         $cookie = load_cookie($_config['cookie_file']);
         $url = $this->compute_xiami_url($cookie);
-        $result = http_request($url, [], $cookie);
+        $result = request($url, [], $cookie);
         
         $data = json_decode($result, true);
         if ($data['code'] != 'SUCCESS') {
             global $resp_header;
             $cookie = save_cookie($resp_header, $_config['cookie_file'], $_config['cookie_pattern']);
             $url = $this->compute_xiami_url($cookie);
-            $result = http_request($url, [], $cookie);
+            $result = request($url, [], $cookie);
         }
         return $result;
     }

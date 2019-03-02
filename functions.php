@@ -8,7 +8,7 @@
  * @param  string $referer referer header
  * @return string          response body(plain text)
  */
-function http_request($url, $data = [], $cookie = [], $referer = '')
+function request($url, $data = [], $cookie = [], $referer = '')
 {
     $curl = curl_init();
     curl_setopt($curl, CURLOPT_URL, $url);
@@ -83,7 +83,7 @@ function save_cookie($resp_header, $file, $pattern, $extra_cookie = []) {
 }
 
 /**
- * customized url encode function
+ * customized url encode function, which is compatible with xiami
  * @param  string $component url component
  * @return string            encoded url component
  */
@@ -91,7 +91,8 @@ function url_encode($component) {
     $base_encoded = urlencode($component);
     $replacement = [
         '%3A' => ':',
-        '%2C' => ','
+        '%2C' => ',',
+        '+' => '%20',
     ];
     return strtr($base_encoded, $replacement);
 }
