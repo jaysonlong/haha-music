@@ -69,9 +69,12 @@ var app = new Vue({
         return;
       }
 
-      var song = await this.api.retrieval.retrieve(this.songInfo, 'song', force);
-      if (song.songId != this.songIdList[this.playIndex]) return;
+      var songInfo = this.songInfo;
+      var song = await this.api.retrieval.retrieve(songInfo, 'song', force);
+      this.setLocal('songList');
+      if (songInfo.songId != this.songInfo.songId) return;
       if (!song.url) {
+        songInfo.pay = 1;
         this.showPayment();
         return;
       }
@@ -81,11 +84,13 @@ var app = new Vue({
       this.player.oncanplay = async function() {
         that.player.oncanplay = null;
         autoplay && (that.player.play(), $('#control .glyphicon-play').toggleClass('glyphicon-play').toggleClass('glyphicon-pause'));
-        var lyric = await that.api.retrieval.retrieve(that.songInfo, 'lyric', force);
+        var lyric = await that.api.retrieval.retrieve(songInfo, 'lyric', force);
+        if (songInfo.songId != that.songInfo.songId) return;
         that.prepareLyrics(lyric.lyric);
       };
 
-      var album = await this.api.retrieval.retrieve(this.songInfo, 'album', force);
+      var album = await this.api.retrieval.retrieve(songInfo, 'album', force);
+      if (songInfo.songId != this.songInfo.songId) return;
       $('#albumImg').attr('src', album.album1v1Url);
       
     },

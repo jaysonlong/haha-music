@@ -25,13 +25,18 @@ return [
     ],
 
     'xiami' => [
-        'cookie_pattern' => '/set-cookie: (xm_sg_tk\S*)=(\S+);/',
+        'cookie_pattern' => '/set-cookie: (xm\S*)=(\S+);/',
         'cookie_file' => 'data/cookie_xiami.json',
         'encrypt_string' => '%s_xmMain_%s_%s',
 
+        'referer' => 'http://www.xiami.com/',
+        
         'search_url' => 'https://www.xiami.com/api/search/searchSongs?_q=%s&_s=%s',
         'search_url_base' => '/api/search/searchSongs',
         'search_param' => '{"key":"%s","pagingVO":{"page":%s,"pageSize":%s}}',
+        'search_backup_url' => 'http://api.xiami.com/web',
+        'search_backup_param' => 'v=2.0&r=search%%2Fsongs&app_key=1&key=%s&page=%s&limit=%s',
+        'retrieve_list_url' => 'https://emumo.xiami.com/song/playlist/id/%s/cat/json',
 
         'retrieve_url' => 'https://www.xiami.com/api/song/getPlayInfo?_q=%s&_s=%s',
         'retrieve_url_base' => '/api/song/getPlayInfo',

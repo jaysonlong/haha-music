@@ -5,28 +5,35 @@
  * @param  string $url     full url
  * @param  array  $data    encode as request body(only when POST method)
  * @param  array  $cookie  cookie header
- * @param  string $referer referer header
+ * @param  string $extra_headers extra headers except cookie
  * @return string          response body(plain text)
  */
-function request($url, $data = [], $cookie = [], $referer = '')
+function request($url, $data = [], $cookie = [], $extra_headers = [])
 {
     $curl = curl_init();
     curl_setopt($curl, CURLOPT_URL, $url);
     curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
     curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, false);
+    curl_setopt($curl, CURLOPT_TIMEOUT, 10);
     curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
     curl_setopt($curl, CURLOPT_HEADER, true);
 
     if (!empty($data)) {
+        $data_encoded = is_array($data) ? http_build_query($data) : $data;
         curl_setopt($curl, CURLOPT_POST, 1);
-        curl_setopt($curl, CURLOPT_POSTFIELDS, http_build_query($data));
+        curl_setopt($curl, CURLOPT_POSTFIELDS, $data_encoded);
     }
-    $headers = array();
-    $headers[] = 'Content-Type: application/x-www-form-urlencoded';
-    $headers[] = 'User-Agent: Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36';
-    if (!empty($referer)) {
-        $headers[] = 'referer: '. $referer;
+
+    $headers = [
+        'content-type' => 'application/x-www-form-urlencoded',
+        'user-agent' => 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36',
+    ];
+    $headers = array_merge($headers, array_change_key_case($extra_headers, CASE_LOWER));
+    foreach ($headers as $key => &$value) {
+        $value = $key . ': ' . $value;
     }
+    $headers = array_values($headers);
+    
     if (!empty($cookie)) {
         array_walk($cookie, function(&$value, $key) {
             $value = $key . '=' . $value;
@@ -78,7 +85,7 @@ function save_cookie($resp_header, $file, $pattern, $extra_cookie = []) {
     if (!is_dir($path)) {
         mkdir($path);
     }
-    file_put_contents($file, json_encode($cookie));
+    file_put_contents($file, json_encode($cookie, JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT));
     return $cookie;
 }
 

@@ -154,32 +154,48 @@ Search.prototype.parseData = function(origin, data) {
       break;
 
     case 'xiami':
-      if (!data.result) {
-        showTip('抱歉，虾米好像出了点问题')
-        break;
+      if (data.result) { // new api
+        songs = data.result.data.songs;
+        total = data.result.data.pagingVO.count || songs.length;
+        songs = songs.map(song => {
+          return {
+            songName: song.songName,
+            singerName: song.singers,
+            fileName: song.singers + ' - ' + song.songName,
+            time: song.length / 1000,
+            songId: song.songId,
+            albumId: song.albumId,
+            album1v1Url: song.albumLogo,
+            lyric: song.lyricInfo && song.lyricInfo.lyricFile || "",
+            origin: origin,
+            pay: 0,
+          }
+        });
+      } else if (data.data) { // old api
+        songs = data.data.songs;
+        total = data.data.total;
+        songs = songs.map(song => {
+          return {
+            songName: song.song_name,
+            singerName: song.artist_name,
+            fileName: song.artist_name + ' - ' + song.song_name,
+            time: song.length,
+            songId: song.song_id,
+            albumId: song.album_id,
+            album1v1Url: song.album_logo,
+            lyric: song.lyric || (song.lyricInfo && song.lyricInfo.lyricFile) || "",
+            origin: origin,
+            pay: song.pay != undefined ? song.pay : 0,
+          }
+        });
+      } else {
+        showTip('抱歉，虾米好像出了点问题');
       }
-      songs = data.result.data.songs;
-      total = songs.length;
-      songs = songs.map(song => {
-        return {
-          songName: song.songName,
-          singerName: song.singers,
-          fileName: song.singers + ' - ' + song.songName,
-          time: song.length / 1000,
-          songId: song.songId,
-          albumId: song.albumId,
-          album1v1Url: song.albumLogo,
-          lyric: song.lyricInfo && song.lyricInfo.lyricFile || "",
-          origin: origin,
-          pay: 0,
-        }
-      });
       break;
 
     case 'wangyi': 
       wangyiEncryption.decodeAbroad(data);
       if (data.result.songCount < 1) {
-        songs = [], total = 0;
         break;
       }
       songs = data.result.songs;
@@ -269,7 +285,9 @@ Retrieval.prototype.parseData = async function(songInfo, target, data) {
 
     case 'xiami':
       var playInfos = data.result.data.songPlayInfos[0].playInfos.filter(song => song.listenFile != '');
-      var url = playInfos.length ? playInfos[playInfos.length-1].listenFile : '';
+      var playInfo = playInfos.length ? playInfos[playInfos.length-1] : {};
+      var { listenFile: url='', length=0 } = playInfo;
+      songInfo.time = songInfo.time || Math.floor(length / 1000);
       result.song = { url };
       result.album = { album1v1Url: songInfo.album1v1Url || '' };
       result.lyric =  { lyric: '' };
@@ -296,9 +314,6 @@ Retrieval.prototype.parseData = async function(songInfo, target, data) {
       break;
   }
 
-  if (result.song) {
-    result.song.songId = songInfo.songId;
-  }
   if (result.lyric) {
     result.lyric.lyric = result.lyric.lyric || songInfo.lyric || CONFIG.defaultLyric;
   }
@@ -314,10 +329,7 @@ Retrieval.prototype.retrieve = async function(songInfo, target, force) {
   if ((!force || target != 'song') && this.cache[songInfo.songId] && this.cache[songInfo.songId][target]) {
     return this.cache[songInfo.songId][target];
   }
-  // if (target == 'song' && songInfo.origin == 'wangyi') return { 
-  //   songId: songInfo.songId, 
-  //   url: 'http://music.163.com/song/media/outer/url?id=' +  songInfo.songId + '.mp3'
-  // }
+
   var params = this.getParams(songInfo, target, force);
   var data = await getData(CONFIG.retrieveUrl, params, CONFIG.type);
   var result = await this.parseData(songInfo, target, data);

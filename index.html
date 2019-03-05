@@ -55,9 +55,9 @@
         <span v-show="!status.noResult" id="top" @click="toTop" class="glyphicon glyphicon-chevron-up"></span>
         <div class="tab-content">
           <ul class="list-group tab-pane fade in" v-for="item in origins" :id="item.name">
-            <li class="list-group-item search-result" v-for="songInfo in result.songs"
+            <li class="list-group-item search-result" v-for="(songInfo, index) in result.songs"
              @click="retrieve(songInfo.songId, true, true)" :title="songInfo.fileName + (songInfo.pay ? ' (付费)' : '')">
-              <a href="javascript:void(0);">{{ songInfo.fileName }}</a>
+              <a href="javascript:void(0);">{{ index + 1 + ' - ' + songInfo.fileName }}</a>
               <img v-if="songInfo.pay" src="images/vip.png" class="vip">
               <span @click.stop="addToList(songInfo.songId)" class="fr glyphicon glyphicon-plus"></span>
               <span class="fr time-tip">{{ convertTime(songInfo.time) }}</span>

@@ -74,7 +74,7 @@ class Retrieval
 
             case 'lyric':
                 $lyric_url = sprintf($_config['retrieve_lyric_url'], $params['songId']);
-                $result = request($lyric_url, [], [], $_config['referer']);
+                $result = request($lyric_url, [], [], [ 'referer' => $_config['referer'] ]);
                 break;
 
             case 'album':
@@ -139,7 +139,7 @@ class Retrieval
         $data = json_decode($result, true);
         if ($data['code'] != 'SUCCESS') {
             global $resp_header;
-            $cookie = save_cookie($resp_header, $_config['cookie_file'], $_config['cookie_pattern']);
+            $cookie = save_cookie($resp_header, $_config['cookie_file'], $_config['cookie_pattern'], $cookie);
             $url = $this->compute_xiami_url($cookie);
             $result = request($url, [], $cookie);
         }
@@ -167,4 +167,3 @@ class Retrieval
 
 $retrieval = new Retrieval();
 echo $retrieval->retrieve();
-

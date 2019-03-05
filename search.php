@@ -90,19 +90,24 @@ class Search
      * @return string search result
      */
     private function search_xiami() {
+        global $resp_header;
         $_config = $this->config[$this->origin];
         $params = $this->params;
-
+        
         $cookie = load_cookie($_config['cookie_file']);
         $url = $this->compute_xiami_url($cookie);
         $result = request($url, [], $cookie);
+        $cookie = save_cookie($resp_header, $_config['cookie_file'], $_config['cookie_pattern'], $cookie);
         
         $data = json_decode($result, true);
         if ($data['code'] != 'SUCCESS') {
-            global $resp_header;
-            $cookie = save_cookie($resp_header, $_config['cookie_file'], $_config['cookie_pattern']);
-            $url = $this->compute_xiami_url($cookie);
-            $result = request($url, [], $cookie);
+            if (isset($data['code'])) {
+                $url = $this->compute_xiami_url($cookie);
+                $result = request($url, [], $cookie);
+                save_cookie($resp_header, $_config['cookie_file'], $_config['cookie_pattern'], $cookie);
+            } else {
+                $result = $this->search_xiami_backup($cookie);
+            }
         }
         return $result;
     }
@@ -124,6 +129,48 @@ class Search
         $search_param_encoded = url_encode($search_param);
         $url = sprintf($_config['search_url'], $search_param_encoded, $encrypted);
         return $url;
+    }
+
+    /**
+     * search the song of xiami (backup)
+     * @return string search result
+     */
+    private function search_xiami_backup() {
+        $_config = $this->config[$this->origin];
+        $params = $this->params;
+
+        $search_param = sprintf($_config['search_backup_param'], url_encode($params['keyword']), $params['page'], $params['pagesize']);
+        $url = $_config['search_backup_url'] . '?' . $search_param;
+        $result = request($url, $search_param, [], ['referer' => $_config['referer']]);
+        $data = json_decode($result, true);
+
+        if ($data['data']['total'] != 0) {
+            $songIds = [];
+            foreach ($data['data']['songs'] as $song) {
+                $songIds[] = $song['song_id'];
+            }
+            $songIdStr = implode($songIds, ',');
+
+            $detail_url = sprintf($_config['retrieve_list_url'], $songIdStr);
+            $detail_result = request($detail_url, [], [], ['referer' => $_config['referer']]);
+            $detail_data = json_decode($detail_result, true);
+
+            foreach ($data['data']['songs'] as &$song) {
+                $song['pay'] = 1;
+                foreach ($detail_data['data']['trackList'] as $song_detail) {
+                    if ($song['song_id'] == $song_detail['songId']) {
+                        $song['length'] = $song_detail['length'];
+                        $song['lyric'] = $song_detail['lyric'];
+                        $song['lyricInfo'] = $song_detail['lyricInfo'];
+                        $song['artist_name'] = $song_detail['singers'];
+                        $song['pay'] = 0;
+                        break;
+                    }
+                }
+            }
+            $result = json_encode($data);
+        }
+        return $result;
     }
 }
 
