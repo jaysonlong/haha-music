@@ -24,6 +24,7 @@ var app = new Vue({
       searching: false, 
       loadingSong: false,
       noResult: true,
+      filtering: false,
     },
     lyric: {
       sentences: [], // lyric sentences
@@ -141,6 +142,7 @@ var app = new Vue({
           break;
         }
       }
+      doAsync(this.handleFilter);
     },
     removeFromList: function(songId) {
       var i = this.songIdList.indexOf(songId);
@@ -154,6 +156,7 @@ var app = new Vue({
         this.playIndex = this.songIdList.indexOf(this.songInfo.songId);
       }
       this.setLocal('songList');
+      doAsync(this.handleFilter);
     },
     search: function(page, force=false) {
       this.setLocal('keyword,origin');
@@ -364,6 +367,30 @@ var app = new Vue({
     },
     toTop: function() {
       $('.tab-content').scrollTop(0);
+    },
+    handleFilter: function(force = false) {
+      if (!this.status.filtering && !force) {
+        return;
+      }
+      var filterKeyword = $('#filtering input').val().trim();
+      $('.scroll-table table tr').each((i, ele) => {
+        if (app.songList[i].fileName.indexOf(filterKeyword) === -1) {
+          ele.style.display = 'none';
+        } else {
+          ele.style.display = 'table-row';
+        }
+      });
+    },
+    filterSongs: function() {
+      this.status.filtering = !this.status.filtering;
+      if (this.status.filtering) {
+        $('.scroll-table').css('height', '82%');
+        doAsync(() => $('#filtering input').focus());
+      } else {
+        $('.scroll-table').animate({ height: '85%' });
+        $('#filtering input').val('');
+        this.handleFilter(true);
+      }
     },
     getLocal: function() {
       this.storageList.forEach(item => {

@@ -168,6 +168,53 @@ input.form-control:focus {
 .playing {
   background: rgba(255,255,255,.2);
 }
+#filter {
+  position: absolute;
+  right: 30px;
+  top: auto;
+  bottom: 110px;
+  z-index: 1;
+  height: 40px;
+  width: 40px;
+  text-align: center;
+  line-height: 40px;
+  border-radius: 50%;
+  font-size: 1.5em;
+  background: white;
+  color: #333;
+  opacity: .4;
+}
+#filter:hover {
+  opacity: 1;
+}
+#filtering {
+  width: 100%;
+}
+#filtering tr {
+  border: none;
+}
+#filtering .input-group {
+  margin: 10px;
+  border: 1px solid rgba(255,255,255,.5);
+  border-radius: 4px;
+}
+#filtering input {
+  border: 0;
+  border-right: 1px solid rgba(255,255,255,.5);
+  background: transparent;
+  color: white;
+}
+#filtering .btn {
+  background: transparent;
+  color: white;
+  border: 0;
+  height: 34px;
+  padding: 6px 10px;
+  font-size: 18px;
+}
+#filtering span.glyphicon-remove {
+  margin: 0 !important;
+}
 
 /*============================================================================*/
 
@@ -318,6 +365,10 @@ input.form-control:focus {
   border-radius: 50%;
   font-size: 1.5em;
   background: white;
+  opacity: .4;
+}
+#top:hover {
+  opacity: 1;
 }
 
 /*============================================================================*/
