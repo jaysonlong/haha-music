@@ -372,9 +372,9 @@ var app = new Vue({
       if (!this.status.filtering && !force) {
         return;
       }
-      var filterKeyword = $('#filtering input').val().trim();
+      var filterKeyword = $('#filtering input').val().trim().toLowerCase();
       $('.scroll-table table tr').each((i, ele) => {
-        if (app.songList[i].fileName.indexOf(filterKeyword) === -1) {
+        if (app.songList[i].fileName.toLowerCase().indexOf(filterKeyword) === -1) {
           ele.style.display = 'none';
         } else {
           ele.style.display = 'table-row';
@@ -453,6 +453,9 @@ var app = new Vue({
               break;
             case 40: // down
               this.setVolume(null, Math.max(0, this.volume - 0.05));
+              break;
+            case 32: // space
+              this.toggle();
               break;
           }
         });
