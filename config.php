@@ -3,7 +3,7 @@
 return [
     'kugou' => [
         'search_url' => 'http://mobilecdngz.kugou.com/api/v3/search/song?tag=1&tagtype=全部&area_code=1&plat=0&sver=5&api_ver=1&showtype=14&tag_aggr=1&version=8904&keyword=%s&correct=1&page=%s&pagesize=%s',
-        'retrieve_url' => 'http://www.kugou.com/yy/index.php?r=play/getdata&hash=%s&album_id=%s',
+        'retrieve_url' => 'http://wwwapi.kugou.com/yy/index.php?r=play/getdata&hash=%s&album_id=%s&mid=874a4a29af8eed1f54650a6e89635388',
     ],
 
     'qq' => [

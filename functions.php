@@ -103,3 +103,19 @@ function url_encode($component) {
     ];
     return strtr($base_encoded, $replacement);
 }
+
+/**
+ * create kugou mid, used at params or cookie
+ * @return string kugou mid
+ */
+function createKgMid() {
+    $randomStr = '';
+    $splitIndex = [8, 12, 16, 20];
+    for ($index=0; $index < 32; $index++) {
+        if (in_array($index, $splitIndex)) {
+            $randomStr .= '-';
+        }
+        $randomStr .= dechex(random_int(0, 15));
+    }
+    return md5($randomStr);
+}
