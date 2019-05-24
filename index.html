@@ -30,7 +30,7 @@
       <table v-show="status.filtering" id="filtering" v-cloak>
         <thead><tr><td>
           <div class="input-group">
-            <input type="text" class="form-control" placeholder="查找歌曲" @keyup.esc="filterSongs" @input="handleFilter">
+            <input type="text" class="form-control" placeholder="查找歌曲" @keydown.stop="triggerMove" @keyup.esc="filterSongs" @input="handleFilter">
             <span class="input-group-btn">
               <button class="btn btn-default" type="button" @click="filterSongs">
                 <span aria-hidden="true" class="glyphicon glyphicon-remove"></span>

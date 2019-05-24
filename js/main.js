@@ -20,6 +20,7 @@ var app = new Vue({
     pageSize: 20,
     currentTime: 0, // currentTime of the audio
     player: null, // audio element
+    failedTime: 0,
     status: {
       searching: false, 
       loadingSong: false,
@@ -79,6 +80,7 @@ var app = new Vue({
         this.showPayment();
         return;
       }
+      this.failedTime = 0;
       this.player.src = song.url;
 
       var that = this;
@@ -99,8 +101,9 @@ var app = new Vue({
       showTip(CONFIG.paymentTip);
       $('#albumImg').attr('src', CONFIG.defaultAlbum);
       this.status.loadingSong = false;
-      if (this.countFreeSong())
-        doAsync(() => this.forward(true), 1000);
+      this.failedTime += 1;
+      if (this.countFreeSong() && this.failedTime < 4) 
+        doAsync(() => this.forward(true), 2000);
     },
     prepareLyrics: function(lyrics) {
       this.status.loadingSong = false;
@@ -368,16 +371,49 @@ var app = new Vue({
     toTop: function() {
       $('.tab-content').scrollTop(0);
     },
+    triggerMove: function(event) {
+      var filterResult = $('.scroll-table table tr:visible');
+      if (filterResult.length == 0) {
+        return;
+      }
+      var hoverIndex = filterResult.index(filterResult.filter('.hover'));
+      switch (event.keyCode) {
+        case 38: // up
+          hoverIndex = hoverIndex - 1;
+          break;
+        case 40: // down
+          hoverIndex = hoverIndex + 1;
+          break;
+        case 13: // enter
+          filterResult.get(hoverIndex).click();
+          break;
+        default:
+          return;
+      }
+      hoverIndex = (hoverIndex + filterResult.length) % filterResult.length;
+      filterResult.removeClass('hover').get(hoverIndex).classList.add('hover');
+    },
     handleFilter: function(force = false) {
       if (!this.status.filtering && !force) {
         return;
       }
+
       var filterKeyword = $('#filtering input').val().trim().toLowerCase();
-      $('.scroll-table table tr').each((i, ele) => {
+      if (filterKeyword == '') {
+        $('.scroll-table table tr').removeClass('hover').css('display', 'table-row');
+        return;
+      }
+
+      var isFirst = true;
+      $('.scroll-table table tr').removeClass('hover').each((i, ele) => {
         if (app.songList[i].fileName.toLowerCase().indexOf(filterKeyword) === -1) {
           ele.style.display = 'none';
         } else {
           ele.style.display = 'table-row';
+          if (isFirst) {
+            ele.classList.add('hover');
+            isFirst = false;
+          }
         }
       });
     },

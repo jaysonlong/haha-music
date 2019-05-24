@@ -87,6 +87,9 @@ input.form-control:focus {
   display: block;
   clear: both;
 }
+.hover {
+  background: rgba(255,255,255,.1);
+}
 
 /*============================================================================*/
 
