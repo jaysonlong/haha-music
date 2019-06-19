@@ -43,7 +43,7 @@
     <div id="panel" class="col-md-6">
       <div class="row">
         <div class="shadow"></div>
-        <div id="content" v-cloak>
+        <div id="content" @click="openDownload" v-cloak>
           <p v-for="(lyric, i) in lyric.sentences">
             {{ lyric }}
           </p>
@@ -53,7 +53,7 @@
     </div>
     <div id="searchBar" class="col-md-3" v-cloak>
       <div class="input-group">
-        <input class="form-control" type="search" v-model.trim="keyword" placeholder="搜索歌曲" @keyup.enter="search(1,true)"/>
+        <input class="form-control" type="search" v-model.trim="keyword" placeholder="搜索歌曲" @keydown.stop @keyup.enter="search(1,true)"/>
         <span class="input-group-btn">
           <button class="btn btn-default" type="button" @click="search(1,true)"><span class="glyphicon glyphicon-search" aria-hidden="true"></span></button>
         </span>
@@ -91,9 +91,9 @@
           <span @click="forward(true)" class="forward glyphicon glyphicon-forward"></span>
         </div>
         <div class="play-mode fl" @click="changeMode">
-          <img v-show="playMode == 1" src="images/single.png">
-          <img v-show="playMode == 2" src="images/random.png">
-          <img v-show="playMode == 0" src="images/loop.png">
+          <img v-show="playMode == 1" src="images/single.png" title="单曲循环">
+          <img v-show="playMode == 2" src="images/random.png" title="随机播放">
+          <img v-show="playMode == 0" src="images/loop.png" title="列表循环">
         </div>
       </div>
       <div class="info">
