@@ -54,7 +54,13 @@ class Retrieval
     private function retrieve_kugou() {
         $_config = $this->config[$this->origin];
         $params = $this->params;
-        $url = sprintf($_config['retrieve_url'], $params['songId'], $params['albumId']);
+
+        $cookie = load_cookie($_config['cookie_file']);
+        if ($cookie['date'] != date('m-d')) {
+            $cookie = ['date' => date('m-d'), 'mid' => createKgMid()];
+            save_cookie([], $_config['cookie_file'], '', $cookie);
+        }
+        $url = sprintf($_config['retrieve_url'], $params['songId'], $params['albumId'], $cookie['mid']);
         return request($url);
     }
 

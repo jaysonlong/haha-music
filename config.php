@@ -2,8 +2,9 @@
 
 return [
     'kugou' => [
+        'cookie_file' => 'data/cookie_kugou.json',
         'search_url' => 'http://mobilecdngz.kugou.com/api/v3/search/song?tag=1&tagtype=全部&area_code=1&plat=0&sver=5&api_ver=1&showtype=14&tag_aggr=1&version=8904&keyword=%s&correct=1&page=%s&pagesize=%s',
-        'retrieve_url' => 'http://wwwapiretry.kugou.com/yy/index.php?r=play/getdata&hash=%s&album_id=%s&mid=86e588cb3ff16270522202b04065c19e',
+        'retrieve_url' => 'http://wwwapiretry.kugou.com/yy/index.php?r=play/getdata&hash=%s&album_id=%s&mid=%s',
     ],
 
     'qq' => [

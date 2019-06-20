@@ -265,6 +265,9 @@ Retrieval.prototype.parseData = async function(songInfo, target, data) {
       result.song = { url: data.data.play_url };
       result.album = { album1v1Url: data.data.img };
       result.lyric = { lyric: data.data.lyrics };
+      if (data.err_code != 0) {
+        result.song.err = data;
+      }
       break;
 
     case 'qq':
