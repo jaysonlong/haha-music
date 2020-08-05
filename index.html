@@ -4,35 +4,73 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>翠花音乐</title>
-  <link rel="shortcut icon"type="image/x-icon"href="https://www.zhihu.com/favicon.ico" />
+  <link rel="shortcut icon"type="image/x-icon"href="./favicon.ico" />
   <link rel="stylesheet" href="https://cdn.bootcss.com/bootstrap/3.3.7/css/bootstrap.min.css" />
   <link rel="stylesheet" href="css/main.css" />
 </head>
 <body>
   <div id="app">
+    <play-list
+      :song-list="songList"
+      :play-index="playIndex"
+      @song_removed="songRemoved"
+      ref="playlist"
+    ></play-list>
+
+    <lyric-panel 
+      :player="player" 
+      :lyric-text="lyricText" 
+      :loading-song="loadingSong"
+      ref="lyric"
+    ></lyric-panel>
+
+    <search-panel
+      :song-list="songList"
+      ref="search"
+    ></search-panel>
+
+    <control-panel
+      :player="player" 
+      :song-list="songList"
+      :song-info="songInfo"
+      :play-index="playIndex" 
+      :listen-history="listenHistory" 
+      :album-img-src="albumImgSrc" 
+      ref="control"
+    ></control-panel>
+
+
+    <audio id="player" controls>
+      你的浏览器不支持audio
+    </audio>
+  </div>
+
+  <!-- component template -->
+
+  <template id="play-list">
     <div id="playList" class="col-md-3">
       <div class="play-list-title">播放列表</div>
-      <span id="filter" @click="filterSongs" class="glyphicon glyphicon-search"></span>
+      <span id="filter" @click="toggleFilter" class="glyphicon glyphicon-search"></span>
       <div class="scroll-table">
-        <div v-show="playList.length == 0" class="empty-list">列表为空</div>
+        <div v-show="songList.length == 0" class="empty-list">列表为空</div>
         <table class="table table-hover">
           <tbody v-cloak>
-            <tr v-for="(song, index) in songList" @click="retrieve(song.songId, true, true)" :title="song.fileName + (song.pay ? ' (付费)' : '')" :class="songIdList[playIndex] == song.songId ? 'playing' : ''">
-              <td><img class="origin-icon" :src="'images/' + song.origin + '.png'"><span>{{ index + 1 + ' - ' + song.fileName }}</span><img v-if="song.pay" src="images/vip.png" class="vip"></td>
+            <tr v-for="(song, index) in songList" @click="retrieve(song, true, true)" :title="song.fileName + (song.vip ? ' (VIP)' : '')" :class="songList[playIndex] == song ? 'playing' : ''">
+              <td><img class="origin-icon" :src="'images/' + song.origin + '.png'"><span>{{ index + 1 + ' - ' + song.fileName }}</span><img v-if="song.vip" src="images/vip.png" class="vip"></td>
               <td>
-                <span class="glyphicon glyphicon-trash" @click.stop="removeFromList(song.songId)"></span>
+                <span class="glyphicon glyphicon-trash" @click.stop="removeFromList(song)"></span>
               </td>
               <td>{{ convertTime(song.time) }}</td>
             </tr>
           </tbody>
         </table>
       </div>
-      <table v-show="status.filtering" id="filtering" v-cloak>
+      <table v-show="filtering" id="filtering" v-cloak>
         <thead><tr><td>
           <div class="input-group">
-            <input type="text" class="form-control" placeholder="查找歌曲" @keydown.stop="triggerMove" @keyup.esc="filterSongs" @input="handleFilter">
+            <input type="text" class="form-control" placeholder="查找歌曲" @keydown.stop="triggerMove" @keyup.esc="toggleFilter" @input="handleFilter">
             <span class="input-group-btn">
-              <button class="btn btn-default" type="button" @click="filterSongs">
+              <button class="btn btn-default" type="button" @click="toggleFilter">
                 <span aria-hidden="true" class="glyphicon glyphicon-remove"></span>
               </button>
             </span>
@@ -40,18 +78,24 @@
         </td></tr></thead>
       </table>
     </div>
-    <div id="panel" class="col-md-6">
+  </template>
+
+  <template id="lyric-panel">
+    <div id="lyricPanel" class="col-md-6">
       <div class="row">
         <div class="shadow"></div>
-        <div id="content" @click="openDownload" v-cloak>
-          <p v-for="(lyric, i) in lyric.sentences">
+        <div id="lyric" @click="openDownload" v-cloak>
+          <div v-for="(lyric, i) in lyric.sentences">
             {{ lyric }}
-          </p>
-          <p v-show="status.loadingSong" class="getting-res">获取资源中......</p>
+          </div>
+          <div v-show="loadingSong" class="getting-res">获取资源中......</div>
         </div>
       </div>
     </div>
-    <div id="searchBar" class="col-md-3" v-cloak>
+  </template>
+
+  <template id="search-panel">
+    <div id="searchPanel" class="col-md-3" v-cloak>
       <div class="input-group">
         <input class="form-control" type="search" v-model.trim="keyword" placeholder="搜索歌曲" @keydown.stop @keyup.enter="search(1,true)"/>
         <span class="input-group-btn">
@@ -65,29 +109,32 @@
         </li>
       </ul>
       <div class="tab-container">
-        <span v-show="!status.noResult" id="top" @click="toTop" class="glyphicon glyphicon-chevron-up"></span>
+        <span v-show="!noResult" id="top" @click="toTop" class="glyphicon glyphicon-chevron-up"></span>
         <div class="tab-content">
           <ul class="list-group tab-pane fade in" v-for="item in origins" :id="item.name">
             <li class="list-group-item search-result" v-for="(songInfo, index) in result.songs"
-             @click="retrieve(songInfo.songId, true, true)" :title="songInfo.fileName + (songInfo.pay ? ' (付费)' : '')">
+             @click="addAndRetrieve(songInfo)" :title="songInfo.fileName + (songInfo.vip ? ' (VIP)' : '')">
               <a href="javascript:void(0);">{{ index + 1 + ' - ' + songInfo.fileName }}</a>
-              <img v-if="songInfo.pay" src="images/vip.png" class="vip">
-              <span @click.stop="addToList(songInfo.songId)" class="fr glyphicon glyphicon-plus"></span>
+              <img v-if="songInfo.vip" src="images/vip.png" class="vip">
+              <span @click.stop="addToList(songInfo)" class="fr glyphicon glyphicon-plus"></span>
               <span class="fr time-tip">{{ convertTime(songInfo.time) }}</span>
             </li>
-            <li v-show="!status.noResult" class="list-group-item loading" style="text-align: center;">加载中......</li>
-            <li v-show="status.noResult"  class="list-group-item no-result" style="text-align: center;">没有更多了</li>
+            <li v-show="!noResult" class="list-group-item loading" style="text-align: center;">加载中......</li>
+            <li v-show="noResult"  class="list-group-item no-result" style="text-align: center;">没有更多了</li>
           </ul>
         </div>
       </div>
     </div>
-    <div id="control" @mousedown="proDown" @mousemove="proMove" @mouseup="proUp" @touchstart="proDown" @touchmove.prevent="proMove" @touchend="proUp">
+  </template>
+
+  <template id="control-panel">
+    <div id="controlPanel" @mousedown="proDown" @mousemove="proMove" @mouseup="proUp" @touchstart="proDown" @touchmove.prevent="proMove" @touchend="proUp">
       <div class="clearf">
         <div class="blank fl">
         </div>
         <div class="tool fl">
           <span @click="backward(true)" class="backward glyphicon glyphicon-backward"></span>
-          <span @click="toggle" class="toggle glyphicon glyphicon-play"></span>
+          <span @click="toggle()" class="toggle glyphicon glyphicon-play"></span>
           <span @click="forward(true)" class="forward glyphicon glyphicon-forward"></span>
         </div>
         <div class="play-mode fl" @click="changeMode">
@@ -97,7 +144,7 @@
         </div>
       </div>
       <div class="info">
-        <img id="albumImg" src="images/record.png"/>
+        <img id="albumImg" :src="albumImgSrc"/>
         <div class="song-name" v-cloak>{{ songInfo ? songInfo.fileName : '' }}</div>
         <div class="timer" v-cloak>{{ convertTime(currentTime) + '/' + convertTime(songInfo.time) }}</div>
         <div class="progress-all no-select" @click="setProgress">
@@ -105,7 +152,7 @@
           <img class="pro-pointer" src="images/volume.png" @dragstart.prevent/>
         </div>
         <div class="volume no-select">
-          <span @click="shutVolume" class="glyphicon glyphicon-volume-down"></span>
+          <span @click="toggleMute" class="glyphicon glyphicon-volume-down"></span>
           <span class="volume-all" @click="setVolume">
             <span class="volume-progress"></span>
             <img class="volume-pointer" src="images/volume.png" @dragstart.prevent/>
@@ -113,10 +160,7 @@
         </div>
       </div>
     </div>
-    <audio id="player" controls @play="setScroll" @ended="forward" @pause="clearScroll" @seeked="moveLyrics(true)">
-      你的浏览器不支持audio
-    </audio>
-  </div>
+  </template>
 
   <script src="https://cdn.bootcss.com/vue/2.5.16/vue.min.js"></script>
   <script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>

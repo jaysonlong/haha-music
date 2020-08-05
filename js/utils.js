@@ -29,10 +29,6 @@ function getData(url, params, type) {
   });
 }
 
-function doAsync(task, time=0) {
-  setTimeout(task, time);
-}
-
 function showTip(tip, time = 1500, color = 'white', background = 'rgba(255,193,7,0.6)') {
   var $tip = $('<strong style="position:fixed;top:200px;left:50%;display:none;z-index:9999;font-size:17px;font-weight:600;padding:10px;border-radius:5px">');
   $tip.css('color', color);
@@ -40,4 +36,13 @@ function showTip(tip, time = 1500, color = 'white', background = 'rgba(255,193,7
   $('body').append($tip);
   $tip.text(tip).css('margin-left', - $tip.outerWidth() / 2)
     .fadeIn(time).delay(1000).fadeOut(500, () => $tip.remove());
+}
+
+function convertTime(time) {
+  time = parseInt(time);
+  var div = Math.floor(time / 60) || 0,
+    mod = time % 60 || 0;
+  div = div > 9 ? div : '0' + div;
+  mod = mod > 9 ? mod : '0' + mod;
+  return div + ':' + mod;
 }

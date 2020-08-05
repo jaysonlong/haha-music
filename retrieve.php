@@ -74,13 +74,24 @@ class Retrieval
 
         switch ($params['target']) {
             case 'song':
-                $song_url = sprintf($_config['retrieve_song_url'], $params['songId']);
-                $result = request($song_url);
+                if ($params['vip'] == 'true') {
+                    $song_url = sprintf($_config['retrieve_song_url_mobile'], $params['songId']);
+                    $page = request($song_url, [
+                        'mobile' => true,
+                    ]);
+                    preg_match('/window.songlist *= *(.*);\s/', $page, $matches);
+                    $result = $matches[1];
+                } else {
+                    $song_url = sprintf($_config['retrieve_song_url'], $params['songId']);
+                    $result = request($song_url);
+                }
                 break;
 
             case 'lyric':
                 $lyric_url = sprintf($_config['retrieve_lyric_url'], $params['songId']);
-                $result = request($lyric_url, [], [], [ 'referer' => $_config['referer'] ]);
+                $result = request($lyric_url, [
+                    'headers' => ['referer' => $_config['referer']]
+                ]);
                 break;
 
             case 'album':
@@ -102,28 +113,39 @@ class Retrieval
             'params' => $params['params'],
             'encSecKey' => $params['encSecKey'],
         ];
-        $cookie = explode('=', $params['cookie'], 2);
-        $cookie = [$cookie[0] => $cookie[1]];
         
         switch ($params['target']) {
             case 'song':
-                $song = request($_config['retrieve_song_url'], $data, $cookie);
+                $url = $params['vip'] == 'true' ? $_config['retrieve_song_url_v1'] : $_config['retrieve_song_url'];
+                $song = request($url, [
+                    'body' => $data,
+                    'headers' => ['cookie' => $params['cookie']],
+                    'mobile' => $params['vip'] == 'true',
+                ]);
+
                 $data = json_decode($song, true);
                 $data = $data['data'][0];
                 if (empty($data['url'])) {
                     $song_url = sprintf($_config['retrieve_song_backup_url'], $data['id']);
                     $song = request($song_url);
                 }
+
                 $result = $song;
                 break;
 
             case 'lyric':
-                $lyric = request($_config['retrieve_lyric_url'], $data, $cookie);
+                $lyric = request($_config['retrieve_lyric_url'], [
+                    'body' => $data,
+                    'headers' => ['cookie' => $params['cookie']],
+                ]);
                 $result = $lyric;
                 break;
 
             case 'album':
-                $album = request($_config['retrieve_album_url'], $data, $cookie);
+                $album = request($_config['retrieve_album_url'], [
+                    'body' => $data,
+                    'headers' => ['cookie' => $params['cookie']],
+                ]);
                 $result = $album;
                 break;
         }
@@ -140,14 +162,18 @@ class Retrieval
 
         $cookie = load_cookie($_config['cookie_file']);
         $url = $this->compute_xiami_url($cookie);
-        $result = request($url, [], $cookie);
+        $result = request($url, [
+            'headers' => ['cookie' => encode_cookie($cookie)],
+        ]);
 
         $data = json_decode($result, true);
         if ($data['code'] != 'SUCCESS') {
             global $resp_header;
             $cookie = save_cookie($resp_header, $_config['cookie_file'], $_config['cookie_pattern'], $cookie);
             $url = $this->compute_xiami_url($cookie);
-            $result = request($url, [], $cookie);
+            $result = request($url, [
+                'headers' => ['cookie' => encode_cookie($cookie)],
+            ]);
         }
         return $result;
     }

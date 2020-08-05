@@ -221,18 +221,16 @@ input.form-control:focus {
 
 /*============================================================================*/
 
-#panel {
-  position: relative;
+#lyricPanel {
   height: 500px;
-  overflow: hidden;
+  overflow: hidden auto;
   text-align: center;
   font-family: sans-serif;
-  font-size: 1.6em;
-  line-height: 1.7;
+  font-size: 1.4em;
+  line-height: 1.9;
   color: #777;
 }
-#content {
-  position: absolute;
+#lyric {
   width: 100%;
 }
 .getting-res {
@@ -247,31 +245,31 @@ input.form-control:focus {
 .form-group, .list-group {
   margin: 0;
 }
-#searchBar {
+#searchPanel {
   height: 100%;
   padding: 0;
   padding-top: 15px;
   border-left: 1px gray solid;
   box-shadow: 1px 0px 3px gray inset;
 }
-#searchBar .nav-tabs {
+#searchPanel .nav-tabs {
   border-color: rgba(255,255,255,.5);
 }
-#searchBar .nav-tabs > li {
+#searchPanel .nav-tabs > li {
   text-align: center;
   width: 25%;
 }
-#searchBar .nav-tabs > li a {
+#searchPanel .nav-tabs > li a {
   padding: 10px 0px;
 }
-#searchBar .nav-tabs .active a {
+#searchPanel .nav-tabs .active a {
   background-color: rgba(255,255,255,.8);
 }
-#searchBar .tab-container {
+#searchPanel .tab-container {
   position:relative; 
   height: 80%; 
 }
-#searchBar .tab-content {
+#searchPanel .tab-content {
   position: absolute;
     top: 0;
     bottom: 0;
@@ -284,56 +282,56 @@ input.form-control:focus {
   margin-right:20px;
   color:#999
 }
-#searchBar .glyphicon-plus {
+#searchPanel .glyphicon-plus {
   font-size:18px;
 }
-#searchBar .nav-tabs img {
+#searchPanel .nav-tabs img {
   width:20px;
   height:20px;
   vertical-align:middle;
   margin-right:8px;
   margin-bottom: 3px;
 }
-#searchBar .input-group {
+#searchPanel .input-group {
   margin: 10px;
   border: 1px solid rgba(255,255,255,.5);
   border-radius: 4px;
 }
-#searchBar input {
+#searchPanel input {
   height: 40px;
   background: rgba(0,0,0,0);
   border: 0;
   color: white;
 }
-#searchBar .btn {
+#searchPanel .btn {
   height: 40px;
   font-size: 18px;
   background: rgba(0,0,0,0);
   color: rgba(255,255,255);
   border: 0;
 }
-#searchBar .list-group {
+#searchPanel .list-group {
   border-radius: 0;
   color: white;
 }
-#searchBar .list-group > li {
+#searchPanel .list-group > li {
   width: 100%;
   background: rgba(255,255,255,0);
   border: 0;
   border-bottom: .5px solid rgba(255,255,255,.2);
 }
-#searchBar .list-group-item {
+#searchPanel .list-group-item {
   height: 40px;
 }
-#searchBar .list-group-item:last-child {
+#searchPanel .list-group-item:last-child {
   text-align: center;
   border: 0;
 }
-#searchBar .list-group-item.search-result:hover {
+#searchPanel .list-group-item.search-result:hover {
   background: rgba(255,255,255,.3);
   cursor: pointer;
 }
-#searchBar .list-group-item a {
+#searchPanel .list-group-item a {
   display: inline-block;
   max-width: 70%;
   color: white;
@@ -341,7 +339,7 @@ input.form-control:focus {
   text-overflow: ellipsis;
   overflow: hidden;
 }
-#searchBar .list-group-item .vip {
+#searchPanel .list-group-item .vip {
   position: absolute;
   top: 50%;
   width: 20px;
@@ -349,10 +347,10 @@ input.form-control:focus {
   margin-top: -12px;
   margin-left: 5px;
 }
-#searchBar .list-group-item:last-child a {
+#searchPanel .list-group-item:last-child a {
   color: rgba(255,255,255,.7);
 }
-#searchBar .list-group-item:last-child a:hover {
+#searchPanel .list-group-item:last-child a:hover {
   color: rgba(255,255,255,1);
 }
 #top {
@@ -376,7 +374,7 @@ input.form-control:focus {
 
 /*============================================================================*/
 
-#control {
+#controlPanel {
   position: fixed;
   bottom: 0;
   width: 50%;

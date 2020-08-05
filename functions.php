@@ -8,44 +8,45 @@
  * @param  string $extra_headers extra headers except cookie
  * @return string          response body(plain text)
  */
-function request($url, $data = [], $cookie = [], $extra_headers = [])
+function request($url, $options = [])
 {
+    $headers = [
+        'content-type' => 'application/x-www-form-urlencoded',
+        'user-agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Safari/537.36',
+    ];
     $curl = curl_init();
-    curl_setopt($curl, CURLOPT_URL, $url);
-    curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
-    curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, false);
-    curl_setopt($curl, CURLOPT_TIMEOUT, 10);
-    curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
-    curl_setopt($curl, CURLOPT_HEADER, true);
 
-    if (!empty($data)) {
-        $data_encoded = is_array($data) ? http_build_query($data) : $data;
-        curl_setopt($curl, CURLOPT_POST, 1);
+    if (!empty($options['mobile'])) {
+        $headers['user-agent'] = 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.116 Mobile Safari/537.36';
+    }
+    if (!empty($options['headers'])) {
+        $headers = array_merge($headers, array_change_key_case($options['headers'], CASE_LOWER));
+    }
+    array_walk($headers, function(&$value, $key) {
+        $value = $key . ': ' . $value;
+    });
+    $headers = array_values($headers);
+
+    curl_setopt_array($curl, array(
+        CURLOPT_URL => $url,
+        CURLOPT_SSL_VERIFYPEER => false,
+        CURLOPT_SSL_VERIFYHOST => false,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HEADER => true,
+        CURLOPT_TIMEOUT => 10,
+        CURLOPT_HTTPHEADER => $headers,
+    ));
+
+    if (!empty($options['body'])) {
+        $data_encoded = is_array($options['body']) ? http_build_query($options['body']) : $options['body'];
+        curl_setopt($curl, CURLOPT_POST, true);
         curl_setopt($curl, CURLOPT_POSTFIELDS, $data_encoded);
     }
 
-    $headers = [
-        'content-type' => 'application/x-www-form-urlencoded',
-        'user-agent' => 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Safari/537.36',
-    ];
-    $headers = array_merge($headers, array_change_key_case($extra_headers, CASE_LOWER));
-    foreach ($headers as $key => &$value) {
-        $value = $key . ': ' . $value;
-    }
-    $headers = array_values($headers);
-    
-    if (!empty($cookie)) {
-        array_walk($cookie, function(&$value, $key) {
-            $value = $key . '=' . $value;
-        });
-        $cookieStr = implode('; ', $cookie);
-        curl_setopt($curl, CURLOPT_COOKIE, $cookieStr);
-    }
-    curl_setopt($curl, CURLOPT_HTTPHEADER, $headers);
-    
     $resp = curl_exec($curl);
     $header_size = curl_getinfo($curl, CURLINFO_HEADER_SIZE);
     curl_close($curl);
+
     global $resp_header;
     $resp_header = [];
     $headerStr = substr($resp, 0, $header_size);
@@ -87,6 +88,18 @@ function save_cookie($resp_header, $file, $pattern, $extra_cookie = []) {
     }
     file_put_contents($file, json_encode($cookie, JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT));
     return $cookie;
+}
+
+/**
+ * encode cookie to string
+ * @param  array $cookie cookie
+ * @return string        encoded cookie
+ */
+function encode_cookie($cookie) {
+    array_walk($cookie, function(&$value, $key) {
+        $value = $key . '=' . $value;
+    });
+    return implode('; ', $cookie);
 }
 
 /**

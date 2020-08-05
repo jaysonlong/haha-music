@@ -32,5 +32,5 @@ const CONFIG = {
 
   defaultLyric: '没有找到歌词，请欣赏',
 
-  paymentTip: '因版权要求，该音乐为付费音乐',
+  paymentTip: '因版权要求，该歌曲需付费试听',
 };

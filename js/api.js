@@ -31,7 +31,7 @@ var wangyiEncryption = {
         h.encSecKey = c(i, e, f), h
     }
 
-    json = JSON.stringify(data);
+    var json = JSON.stringify(data);
     var rs = d(
       json,
       "010001",
@@ -46,17 +46,36 @@ var wangyiEncryption = {
   },
 
   getSongParams(id) {
-    let data = {
+    var data = {
       br: CONFIG.defaultWangyiBr,
       csrf_token: "",
       ids: "[" + id + "]",
     };
+    return this.entry(data);
+    
+    data = {
+      ids: "[" + id + "]",
+      level: "standard",
+      encodeType: "aac",
+    };
+    var v1Params = this.entry(data);
 
+    params['v1Params'] = v1Params.params;
+    params['v1EncSecKey'] = v1Params.encSecKey;
+    return params;
+  },
+
+  getSongParamsV1(id) {
+    var data = {
+      ids: "[" + id + "]",
+      level: "standard",
+      encodeType: "aac",
+    };
     return this.entry(data);
   },
 
   getAlbumParams(id) {
-    let data = {
+    var data = {
       id,
       c: '[{"id":"' + id + '"}]',
       csrf_token: "",
@@ -65,7 +84,7 @@ var wangyiEncryption = {
   },
 
   getLyricParams(id) {
-    let data = {
+    var data = {
       id: id + '',
       lv: -1,
       tv: -1,
@@ -77,7 +96,7 @@ var wangyiEncryption = {
   getSearchParams(keyword, page, pageSize, type = 1) {
     page = page > 0 ? page : 1;
     offset = pageSize * (page - 1);
-    let data = {
+    var data = {
       "hlpretag": "<span class=\"s-fc7\">",
       "hlposttag": "</span>",
       "s": keyword,
@@ -129,7 +148,7 @@ Search.prototype.parseData = function(origin, data) {
           album1v1Url: "",
           lyric: "",
           origin: origin,
-          pay: song.privilege == 10,
+          vip: song.privilege == 10,
         }
       });
       break;
@@ -148,7 +167,7 @@ Search.prototype.parseData = function(origin, data) {
           album1v1Url: "",
           lyric: "",
           origin: origin,
-          pay: song.pay.pay_play == 1,
+          vip: song.pay.pay_play == 1,
         }
       });
       break;
@@ -168,7 +187,7 @@ Search.prototype.parseData = function(origin, data) {
             album1v1Url: song.albumLogo,
             lyric: song.lyricInfo && song.lyricInfo.lyricFile || "",
             origin: origin,
-            pay: 0,
+            vip: false,
           }
         });
       } else if (data.data) { // old api
@@ -185,7 +204,7 @@ Search.prototype.parseData = function(origin, data) {
             album1v1Url: song.album_logo,
             lyric: song.lyric || (song.lyricInfo && song.lyricInfo.lyricFile) || "",
             origin: origin,
-            pay: song.pay != undefined ? song.pay : 0,
+            vip: song.pay ? true : false,
           }
         });
       } else {
@@ -211,7 +230,7 @@ Search.prototype.parseData = function(origin, data) {
           album1v1Url: "",
           lyric: "",
           origin: origin,
-          pay: song.fee == 1,
+          vip: song.fee == 1,
         }
       });
       break;
@@ -232,10 +251,13 @@ var Retrieval = function() {
 }
 
 Retrieval.prototype.getParams = function(songInfo, target, force) {
-  var params = { origin: songInfo.origin, target };
+  var params = { origin: songInfo.origin, target, vip: songInfo.vip };
   if (songInfo.origin == 'wangyi') {
     target = target.charAt(0).toUpperCase() + target.substr(1);
     var wangyiParams = wangyiEncryption['get' + target + 'Params'](songInfo.songId);
+    if (songInfo.vip && target == 'Song') {
+      wangyiParams = wangyiEncryption.getSongParamsV1(songInfo.songId);
+    }
     var cookie = '_ntes_nuid=' + fetch_visitor_hash();
     Object.assign(params, wangyiParams, { cookie });
   } else {
@@ -262,7 +284,7 @@ Retrieval.prototype.parseData = async function(songInfo, target, data) {
 
   switch (songInfo.origin) {
     case 'kugou':
-      result.song = { url: data.data.play_url };
+      result.song = { url: data.data.play_url, vip: data.data.privilege == 10 };
       result.album = { album1v1Url: data.data.img };
       result.lyric = { lyric: data.data.lyrics };
       if (data.err_code != 0) {
@@ -272,13 +294,19 @@ Retrieval.prototype.parseData = async function(songInfo, target, data) {
 
     case 'qq':
       if (target == 'song') {
-        var url = data.req_0.data.midurlinfo[0].purl;
-        if (!url) {
-          var { filename, vkey } = data.req_0.data.midurlinfo[0];
-          var guid = data.req_0.data.testfile2g.match(/guid=(\d+)/)[1];
-          url =  `${filename}?guid=${guid}&vkey=${vkey}&fromtag=`;
+        var url;
+        if (songInfo.vip) {
+          url = data[0].m4aUrl;
+        } else {
+          url = data.req_0.data.midurlinfo[0].purl;
+          if (!url) {
+            var { filename, vkey } = data.req_0.data.midurlinfo[0];
+            var guid = data.req_0.data.testfile2g.match(/guid=(\d+)/)[1];
+            url =  `${filename}?guid=${guid}&vkey=${vkey}&fromtag=`;
+          }
+          url = 'http://dl.stream.qqmusic.qq.com/' + url;
         }
-        result.song = { url: 'http://dl.stream.qqmusic.qq.com/' + url };
+        result.song = { url };
       } else if (target == 'album') {
         result.album = { album1v1Url: this.buildQQAlbumUrl(songInfo.albumId) };
       } else if (target == 'lyric') {
@@ -305,6 +333,7 @@ Retrieval.prototype.parseData = async function(songInfo, target, data) {
       try {
         if (target == 'song') {
           result.song = data.data[0];
+          result.song.vip = result.song.fee == 1;
         } else if (target == 'album') {
           result.album =  { album1v1Url: '' };
           result.album = { album1v1Url: data.songs[0].al.picUrl + '?param=200y200' };

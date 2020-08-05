@@ -81,7 +81,7 @@ class Search
             'params' => $params['params'],
             'encSecKey' => $params['encSecKey']
         );
-        $result = request($_config['search_url'], $data);
+        $result = request($_config['search_url'], ['body' => $data]);
         return $result;
     }
 
@@ -96,14 +96,18 @@ class Search
         
         $cookie = load_cookie($_config['cookie_file']);
         $url = $this->compute_xiami_url($cookie);
-        $result = request($url, [], $cookie);
+        $result = request($url, [
+            'headers' => ['cookie' => encode_cookie($cookie)],
+        ]);
         $cookie = save_cookie($resp_header, $_config['cookie_file'], $_config['cookie_pattern'], $cookie);
         
         $data = json_decode($result, true);
         if ($data['code'] != 'SUCCESS') {
             if (isset($data['code'])) {
                 $url = $this->compute_xiami_url($cookie);
-                $result = request($url, [], $cookie);
+                $result = request($url, [
+                    'headers' => ['cookie' => encode_cookie($cookie)],
+                ]);
                 save_cookie($resp_header, $_config['cookie_file'], $_config['cookie_pattern'], $cookie);
             } else {
                 $result = $this->search_xiami_backup($cookie);
@@ -141,7 +145,10 @@ class Search
 
         $search_param = sprintf($_config['search_backup_param'], url_encode($params['keyword']), $params['page'], $params['pagesize']);
         $url = $_config['search_backup_url'] . '?' . $search_param;
-        $result = request($url, $search_param, [], ['referer' => $_config['referer']]);
+        $result = request($url, [
+            'body' => $search_param, 
+            'headers' => ['referer' => $_config['referer']],
+        ]);
         $data = json_decode($result, true);
 
         if ($data['data']['total'] != 0) {
@@ -152,7 +159,9 @@ class Search
             $songIdStr = implode($songIds, ',');
 
             $detail_url = sprintf($_config['retrieve_list_url'], $songIdStr);
-            $detail_result = request($detail_url, [], [], ['referer' => $_config['referer']]);
+            $detail_result = request($detail_url, [
+                'headers' => ['referer' => $_config['referer']],
+            ]);
             $detail_data = json_decode($detail_result, true);
 
             foreach ($data['data']['songs'] as &$song) {

@@ -1,121 +1,178 @@
 'use strict';
+
 Vue.config.devtools = true;
-var app = new Vue({
-  el: '#app',
-  data: {
-    lastVersion: '1.0',
-    version: '',
-    songInfo: {},
-    songList: [], // play list
-    songIdList: [], // play list of id
-    listenHistory: [],
-    result: {}, // search result of current origin
-    allResult: {}, // all search result
-    playMode: 0,
-    playIndex: 0, 
-    volume: 0.5, 
-    keyword: '',
-    origins: CONFIG.origins,
-    origin: CONFIG.defaultOrigin,
-    pageSize: 20,
-    currentTime: 0, // currentTime of the audio
-    player: null, // audio element
-    failedTime: 0,
-    status: {
-      searching: false, 
-      loadingSong: false,
-      noResult: true,
-      filtering: false,
-    },
-    lyric: {
-      sentences: [], // lyric sentences
-      times: [], // lyric time array
-      activeLrcIndex: 0,
-    },
-    api: {
-      search: null,
-      retrieval: null,
-    },
-    storageList: [
-      'songList', 'playIndex', 'playMode', 'volume', 'version', 'keyword', 'origin',
-    ],
-    mouseParam: {
-      flag: 0,
-      target: 0,
-    },
-    class: 'test'
+
+var storageMixin = {
+  data: { 'storageAttrs': [] },
+  created: function () {
+    this.storageAttrs.forEach(key => {
+      try {
+        this[key] = JSON.parse(localStorage.getItem(key));
+      } finally {
+        this.saveStorage(key);
+      }
+    });
+
+    this.storageAttrs.forEach(key => {
+      this.$watch(key, value => {
+        this.saveStorage(key);
+      });
+    });
   },
   methods: {
-    retrieve: async function(songId, autoplay = true, force = false) {
-      if (!force && songId == this.songInfo.songId) {
-        if (!this.songInfo.pay) {
-          this.player.currentTime = 0;
-          this.player.play();
-        }
+    saveStorage: function(key) {
+      localStorage.setItem(key, JSON.stringify(this[key]));
+    }
+  }
+}
+
+Vue.component('play-list', {
+  template: '#play-list',
+  props: ['songList', 'playIndex'],
+  inject: ['retrieve'],
+
+  data: function() {
+    return {
+      playList: null,
+      filtering: false,
+    }
+  },
+
+  watch: {
+    songList: function(val) {
+      Vue.nextTick(this.handleFilter);
+      Vue.nextTick(this.playListScrollBar.resize);
+    },
+    playIndex: function() {
+      Vue.nextTick(this.scrollToSong);
+    },
+  },
+
+  mounted: function() {
+    this.playList = $('.scroll-table');
+    this.playListScrollBar = this.playList.niceScroll({ enablekeyboard: false });
+    Vue.nextTick(this.scrollToSong);
+  },
+
+  methods: {
+    removeFromList: function(songInfo) {
+      var i = this.songList.indexOf(songInfo);
+      if (i == -1) return;
+      this.songList.splice(i, 1);
+      this.$emit('song_removed', i);
+    },
+    toggleFilter: function() {
+      this.filtering = !this.filtering;
+      if (this.filtering) {
+        this.playList.css('height', '82%');
+        Vue.nextTick(() => $('#filtering input').focus());
+      } else {
+        this.playList.animate({ height: '85%' });
+        $('#filtering input').val('');
+        this.handleFilter(true);
+      }
+    },
+    handleFilter: function(force = false) {
+      if (!this.filtering && force === false) {
         return;
       }
+
+      var filterKeyword = $('#filtering input').val().trim().toLowerCase();
+      if (filterKeyword == '') {
+        this.playList.find('table tr').removeClass('hover').css('display', 'table-row');
+        return;
+      }
+
+      var hasStart = false;
+      this.playList.find('table tr').removeClass('hover').each((i, ele) => {
+        if ((i + 1 + ' - ' + this.songList[i].fileName).toLowerCase().indexOf(filterKeyword) === -1) {
+          ele.style.display = 'none';
+        } else {
+          ele.style.display = 'table-row';
+          if (!hasStart) {
+            ele.classList.add('hover');
+            hasStart = true;
+          }
+        }
+      });
+      hasStart && this.scrollToSong(0);
+    },
+    triggerMove: function(event) {
+      var filterResult = this.playList.find('table tr:visible');
+      if (filterResult.length == 0) {
+        return;
+      }
+      var hoverIndex = filterResult.index(filterResult.filter('.hover'));
+      switch (event.keyCode) {
+        case 38: // up
+          hoverIndex = hoverIndex == -1 ? 0 : hoverIndex - 1;
+          event.preventDefault();
+          break;
+        case 40: // down
+          hoverIndex = hoverIndex == -1 ? 0 : hoverIndex + 1;
+          event.preventDefault();
+          break;
+        case 13: // enter
+          filterResult.get(hoverIndex).click();
+          break;
+        default:
+          return;
+      }
+      hoverIndex = (hoverIndex + filterResult.length) % filterResult.length;
+      filterResult.removeClass('hover').get(hoverIndex).classList.add('hover');
+      this.scrollToSong(hoverIndex);
+    },
+    scrollToSong: function(index = null) {
+      var target;
+      if (index === null) {
+        target = $('.playing');
+      } else {
+        target = $(this.playList.find('table tr:visible')[index]);
+      }
+
+      if (!target.length) return;
+
+      var list = this.playList;
+      var table = $('.table');
+
+      if (target.offset().top < list.offset().top) {
+        list.scrollTop(target.offset().top - table.offset().top);
+      } else if (target.offset().top > list.offset().top + list.height()) {
+        list.scrollTop(target.offset().top - table.offset().top + target.height() - list.height());
+      }
+    },
+  }
+});
+
+
+Vue.component('lyric-panel', {
+  template: '#lyric-panel',
+  props: ['player', 'lyricText', 'loadingSong'],
+
+  data: function() {
+    return {
+      panel: null,
+      panelScrollBar: null,
+      lyric: {
+        sentences: [],  // lyric sentences
+        times: [],  // lyric time array
+        activeLrcIndex: 0,
+      },
+      ignoreScroll: false,
+      lastScrollTime: 0,
+      midPos: 0,
+      lrcInterval: 0,
+    }
+  },
+
+  watch: {
+    lyricText: function(text) {
       this.lyric.times = [];
       this.lyric.sentences = [];
-      this.status.loadingSong = true;
-      this.addToList(songId);
-      this.playIndex = this.songIdList.indexOf(songId);
-      this.setLocal('playIndex');
-      this.songInfo = this.songList[this.playIndex];
-      this.currentTime = 0;
-      this.player.paused || this.player.pause();
-      doAsync(this.scrollToSong);
-      this.listenHistory.push(songId);
-      $('#control .glyphicon-pause').toggleClass('glyphicon-play').toggleClass('glyphicon-pause');
+      this.lyric.activeLrcIndex = 0;
+      this.panelScrollBar.scrollTop(0);
 
-      if (this.songInfo.pay) {
-        this.showTipAndForward(CONFIG.paymentTip);
-        return;
-      }
-
-      var songInfo = this.songInfo;
-      var song = await this.api.retrieval.retrieve(songInfo, 'song', force);
-      this.setLocal('songList');
-      if (songInfo.songId != this.songInfo.songId) return;
-      if (song.err !== undefined) {
-        console.log(song.err);
-        this.showTipAndForward('ERROR: ' + song.err.err_code);
-        return;
-      } else if (!song.url) {
-        songInfo.pay = 1;
-        this.showTipAndForward(CONFIG.paymentTip);
-        return;
-      }
-      this.failedTime = 0;
-      this.player.src = song.url;
-
-      var that = this;
-      this.player.oncanplay = async function() {
-        that.player.oncanplay = null;
-        autoplay && (that.player.play(), $('#control .glyphicon-play').toggleClass('glyphicon-play').toggleClass('glyphicon-pause'));
-        var lyric = await that.api.retrieval.retrieve(songInfo, 'lyric', force);
-        if (songInfo.songId != that.songInfo.songId) return;
-        that.prepareLyrics(lyric.lyric);
-      };
-
-      var album = await this.api.retrieval.retrieve(songInfo, 'album', force);
-      if (songInfo.songId != this.songInfo.songId) return;
-      $('#albumImg').attr('src', album.album1v1Url);
-      
-    },
-    showTipAndForward: function(tip) {
-      showTip(tip);
-      $('#albumImg').attr('src', CONFIG.defaultAlbum);
-      this.status.loadingSong = false;
-      this.failedTime += 1;
-      if (this.countFreeSong() && this.failedTime < 3) 
-        doAsync(() => this.forward(true), 2000);
-    },
-    prepareLyrics: function(lyrics) {
-      this.status.loadingSong = false;
-      var content = $('#content');
-      content.css('top', this.midPos);
-
-      var sentences = lyrics.trim().split('\n');
+      var sentences = text.trim().split('\n');
       if (sentences[0].search(/\d+:\d+\.\d+/) == -1)
         sentences[0] = '[00:00.00]' + sentences[0];
       
@@ -137,62 +194,165 @@ var app = new Vue({
           this.lyric.sentences.splice(loc + 1, 0, sentence);
         }
       }
-      doAsync("$('#content').children(':first-child').addClass('activelrc')");
+
+      Vue.nextTick(() => $('#lyric > div:first-child').addClass('activelrc'));
+      Vue.nextTick(this.panelScrollBar.resize);
     },
-    addToList: function(songId) {
-      if (this.songIdList.indexOf(songId) > -1) return;
-      for (var song of this.result.songs) {
-        if (song.songId == songId) {
-          this.songList.push(song);
-          this.songIdList.push(songId);
-          doAsync(this.playListScrollBar.resize);
-          this.setLocal('songList');
-          break;
-        }
+    player: function(player) {
+      if (!player) return;
+
+      $(player).on('play', () => {
+        this.lrcInterval = setInterval(() => {
+          this.scrollLyrics();
+        }, 200);
+      }).on('pause', () => {
+        clearInterval(this.lrcInterval);
+        this.panel.stop(true, true);
+      }).on('seeked', () => {
+        this.scrollLyrics(true);
+      });
+    }
+  },
+
+  mounted: function() {
+    this.panel = $('#lyricPanel');
+    this.midPos = parseInt(this.panel.css('height').slice(0, -2)) / 2 - 10;
+    this.panelScrollBar = this.panel.niceScroll({ enablekeyboard: false });
+    this.panel.scroll(() => {
+      this.ignoreScroll || (this.lastScrollTime = new Date().getTime());
+    });
+    $('#lyric').css('margin-top', this.midPos + 'px').css('margin-bottom', this.midPos + 'px');
+  },
+
+  methods: {
+    scrollLyrics: function(immediate = false) {
+      var i = locationOf(this.player.currentTime, this.lyric.times);
+      if (this.lyric.activeLrcIndex == i) {
+        return;
       }
-      doAsync(this.handleFilter);
+
+      this.lyric.activeLrcIndex = i;
+      $('.activelrc').removeClass('activelrc');
+      var ele = $(`#lyric :nth-child(${ i + 1 })`).addClass('activelrc');
+
+      var elapsedTime = new Date().getTime() - this.lastScrollTime;
+      if (!immediate && elapsedTime < 1500) {
+        return;
+      }
+
+      var offset = ele.offset().top - this.midPos;
+
+      this.panel.stop(true, true);
+      this.ignoreScroll = true;
+      this.panel.animate({
+        scrollTop: this.panel.scrollTop() + offset
+      }, immediate ? 0 : 300, () => {
+        setTimeout(() => this.ignoreScroll = false, 30);
+      });
     },
-    removeFromList: function(songId) {
-      var i = this.songIdList.indexOf(songId);
-      if (i < 0) return;
-      this.songList.splice(i, 1);
-      this.songIdList.splice(i, 1);
-      doAsync(this.playListScrollBar.resize);
-      if (this.playIndex == i) {
-        this.songIdList.length && this.retrieve(this.songIdList[i < this.songIdList.length ? i : 0], !this.player.paused);
-      } else {
-        this.playIndex = this.songIdList.indexOf(this.songInfo.songId);
+    openDownload: function(event) {
+      if (event.ctrlKey) {
+        $(`<a href="${this.player.src}" download target="_blank">`)[0].click();
       }
-      this.setLocal('songList');
-      doAsync(this.handleFilter);
+    },
+  },
+});
+
+Vue.component('search-panel', {
+  mixins: [storageMixin],
+  template: '#search-panel',
+  props: ['songList'],
+  inject: ['retrieve'],
+
+  data: function() {
+    return {
+      storageAttrs: ['origin', 'keyword'],
+      origin: CONFIG.defaultOrigin,
+      keyword: '',
+
+      origins: CONFIG.origins,
+      results: {},
+      result: {},
+      page: 1,
+      pageSize: 20,
+      searching: false,
+      noResult: false,
+
+      searchApi: new Search(),
+      resultPanel: null,
+      resultPanelScrollBar: null,
+    }
+  },
+
+  watch: {
+    result: function(val) {
+      this.resultPanelScrollBar && Vue.nextTick(this.resultPanelScrollBar.resize);
+    },
+  },
+
+  mounted: function() {
+    this.origins.forEach(each => {
+      this.results[each.name] = {
+        page: 0,
+        keyword: '',
+        songs: [],
+      };
+    });
+
+    this.setOrigin(null, this.origin);
+    $('[href="#' + this.origin + '"]').click();
+
+    this.resultPanel = $('.tab-content');
+    setTimeout(() => this.resultPanelScrollBar = this.resultPanel.niceScroll({ enablekeyboard: false }), 0);
+
+    var io = new IntersectionObserver(entries => {
+      entries[0].intersectionRatio > 0.005 && this.result.songs.length != 0
+       && this.search();
+    });
+    $('.loading').each((i, el) => io.observe(el));
+  },
+
+  methods: {
+    setOrigin: function(event, origin = null) {
+      this.origin = origin || event.target.dataset.origin;
+      this.result = this.results[this.origin];
+      this.search(1);
+    },
+    addAndRetrieve: function(songInfo) {
+      this.addToList(songInfo);
+      this.retrieve(songInfo, true, true)
+    },
+    addToList: function(songInfo) {
+      if (this.songList.includes(songInfo)) return;
+      this.songList.push(songInfo);
     },
     search: function(page, force=false) {
-      this.setLocal('keyword,origin');
       if (!this.keyword) {
         this.$set(this.result, 'songs', []);
         this.result.page = 1;
-        this.status.searching = false;
-        this.status.noResult = true;
+        this.searching = false;
+        this.noResult = true;
         return;
       }
 
       page = page || this.result.page + 1;
-      this.status.noResult = false;
+      this.noResult = false;
+      
       if (force || this.keyword != this.result.keyword) {
         this.$set(this.result, 'songs', []);
       } else if(page != this.result.page + 1) {
-        this.result.songs.length || (this.status.noResult = true);
+        this.result.songs.length || (this.noResult = true);
         return;
       }
 
-      this.api.search.search({
+      this.searchApi.search({
         origin: this.origin, 
         keyword: this.keyword, 
-        page, 
+        page: page, 
         pageSize: this.pageSize, 
         force,
       })
-        .then((res) => this.prepareResult(res, page));
+        .then(res => this.prepareResult(res, page));
     },
     prepareResult: function(data, page) {
       if (page == this.result.page + 1) {
@@ -200,135 +360,112 @@ var app = new Vue({
         this.$delete(this.result, 'songs');
         this.$set(this.result, 'songs', newResult);
       } else {
-        $('.tab-content').scrollTop(0);
+        this.toTop();
         this.$delete(this.result, 'songs');
         this.$set(this.result, 'songs', data.songs);
       }
       this.result.page = page;
       this.result.keyword = this.keyword;
-      this.status.searching = false;
-      this.status.noResult = data.songs.length < this.pageSize;
-      doAsync(this.searchResultScrollBar.resize);
+      this.searching = false;
+      this.noResult = data.songs.length < this.pageSize;
     },
-    convertTime: function(time) {
-      time = parseInt(time);
-      var div = Math.floor(time / 60) || 0,
-        mod = time % 60 || 0;
-      div = div > 9 ? div : '0' + div;
-      mod = mod > 9 ? mod : '0' + mod;
-      return div + ':' + mod;
+    toTop: function() {
+      this.resultPanel.scrollTop(0);
     },
-    setScroll: function(another) {
-      clearInterval(this.proInterval);
-      this.proInterval = setInterval('app.autoProgress()', 1000);
-      clearInterval(this.lrcInterval);
-      this.lrcInterval = setInterval(() => {
-        this.moveLyrics();
-      }, 200);
-    },
-    clearScroll: function() {
-      $('#content').stop(true, true);
-      clearInterval(this.proInterval);
-    },
-    moveLyrics: function(imme = false) {
-      var i = locationOf(this.player.currentTime, this.lyric.times);
-      if (this.lyric.activeLrcIndex == i) {
-        return;
-      }
-      this.lyric.activeLrcIndex = i;
-      var content = $('#content');
-      var ele = content.children(`:nth-child(${ i + 1 })`);
-      var offset = ele.offset().top - this.midPos;
-      $('.activelrc').removeClass('activelrc');
-      ele.addClass('activelrc');
+  }
+});
 
-      $('#content').stop(true, true);
-      content.animate({
-        top: content.offset().top - offset
-      }, imme ? 0 : 300, () => {
+Vue.component('control-panel', {
+  mixins: [storageMixin],
+  template: '#control-panel',
+  props: ['player', 'songList', 'songInfo', 'playIndex', 'listenHistory', 'albumImgSrc'],
+  inject: ['retrieve'],
+
+  data: function() {
+    return {
+      storageAttrs: ['volume', 'playMode'],
+      volume: 0.5,
+      playMode: 0,
+
+      albumImg: null,
+      currentTime: 0,
+      mouseParam: {
+        flag: 0,
+        target: 0,
+      },
+      proInterval: 0,
+      albumInterval: 0,
+    }
+  },
+
+  watch: {
+    player: function() {
+      this.setVolume(null, this.volume);
+    },
+    player: function(player) {
+      if (!player) return;
+
+      $(player).on('play', () => {
+        this.proInterval = setInterval(this.updateProgress, 1000);
+        this.albumInterval = setInterval(() => {
+          this.albumImg.counter = (this.albumImg.counter + 1) % 360;
+          this.albumImg.css('transform', 'rotate(' + this.albumImg.counter + 'deg)');
+        }, 40);
+      }).on('pause', () => {
+        clearInterval(this.proInterval);
+        clearInterval(this.albumInterval);
+      }).on('ended', () => {
+        this.forward();
+      }).on('seeked', () => {
+        this.updateProgress(true);
       });
-    },
-    backward: function(force = false) {
-      if (!this.songIdList.length) return;
-      var next = this.playIndex;
-      (this.playMode == 0 || this.playMode == 1 && force === true) && (next = (next - 1 + this.songIdList.length) % this.songIdList.length);
-      this.playMode == 2 && (next = this.getNextRandom());
-      this.retrieve(this.songIdList[next]);
-    },
-    forward: function(force = false) {
-      if (!this.songIdList.length) return;
-      var next = this.playIndex;
-      (this.playMode == 0 || this.playMode == 1 && force === true) && (next = (next + 1) % this.songIdList.length);
-      this.playMode == 2 && (next = this.getNextRandom());
-      this.retrieve(this.songIdList[next]);
-    },
-    getNextRandom: function() {
-      var freeCnt = this.countFreeSong();
-      var half = Math.floor(freeCnt || this.songList.length / 2);
-      var recentHistory = this.listenHistory.slice(Math.max(this.listenHistory.length - half, 0));
-      var restSong = this.songIdList.filter((songId, index) => {
-        return recentHistory.indexOf(songId) == -1 && (!freeCnt || this.songList[index].pay == 0);
-      });
-      var index = restSong.length ? Math.floor(Math.random() * restSong.length) : -1;
-      var next = index != -1 ? this.songIdList.indexOf(restSong[index]) : this.playIndex;
-      return next;
-    },
-    countFreeSong: function () {
-      return this.songList.filter(each => each.pay == 0).length;
-    },
-    scrollToSong: function (index = null) {
-      var target ;
-      if (index === null) {
-        target = $('.playing');
-      } else {
-        target = $($('.scroll-table table tr:visible').get(index));
-        if (target === undefined) {
-          return;
-        }
-      }
+    }
+  },
 
-      var scroll = $('.scroll-table');
-      var table = $('.table');
+  mounted: function() {
+    this.toggleBtn = $('.toggle');
+    this.muteBtn = $('.glyphicon-volume-down');
+    this.albumImg = $('#albumImg');
+    this.albumImg.counter = 0;
 
-      if (target.offset().top < scroll.offset().top) {
-        scroll.scrollTop(target.offset().top - table.offset().top);
-      } else if (target.offset().top > scroll.offset().top + scroll.height()) {
-        scroll.scrollTop(target.offset().top - table.offset().top + target.height() - scroll.height());
+    $(document).on('keydown', (e) => {
+      switch (e.keyCode) {
+        case 38: // up
+          this.setVolume(null, Math.min(1, this.volume + 0.05));
+          break;
+        case 40: // down
+          this.setVolume(null, Math.max(0, this.volume - 0.05));
+          break;
+        case 37: // left
+          this.player.currentTime = Math.max(0, this.player.currentTime - 3);
+          break;
+        case 39: // right
+          this.player.currentTime = Math.min(this.songInfo.time, this.player.currentTime + 3);
+          break;
+        case 32: // space
+          this.toggle();
+          break;
       }
-    },
-    toggle: function() {
-      if (!this.songIdList.length || this.songInfo.pay) return;
-      if (this.player.paused) {
-        this.player.play();
-        $('#control .glyphicon-play').toggleClass('glyphicon-play').toggleClass('glyphicon-pause');
-      } else {
-        this.player.pause();
-        $('#control .glyphicon-pause').toggleClass('glyphicon-play').toggleClass('glyphicon-pause');
-      }
-    },
-    changeMode: function() {
-      this.playMode = (this.playMode + 1) % 3;
-      this.setLocal('playMode');
-    },
-    correct: function() {
-      this.player.paused ? $('#control .glyphicon-pause').toggleClass('glyphicon-play').toggleClass('glyphicon-pause') : $('#control .glyphicon-play').toggleClass('glyphicon-play').toggleClass('glyphicon-pause');
-    },
-    autoProgress: function() {
-      this.currentTime = this.player.currentTime;
-      var percent = this.currentTime / this.songInfo.time;
-      var width = percent * parseInt($('.progress-all').css('width').slice(0, -2));
-      $('._progress').css('width', width);
-      $('.pro-pointer').css('left', width - 10);
-    },
+    });
+  },
+
+  methods: {
     setProgress: function(e) {
       var maxWidth = parseInt($('.progress-all').css('width').slice(0, -2));
       var pageX = e.type == 'touchmove' ? e.targetTouches[0].pageX : e.pageX;
       var offset = pageX - $('._progress').offset().left;
       var width = Math.max(0, Math.min(offset, maxWidth));
+      var percent = width / maxWidth;
       $('._progress').css('width', width);
       $('.pro-pointer').css('left', width - 10);
-      var percent = width / maxWidth;
       this.player.currentTime = this.currentTime = Math.floor(percent * this.songInfo.time);
+    },
+    updateProgress: function() {
+      this.currentTime = this.player.currentTime;
+      var percent = this.currentTime / this.songInfo.time;
+      var width = percent * parseInt($('.progress-all').css('width').slice(0, -2));
+      $('._progress').css('width', width);
+      $('.pro-pointer').css('left', width - 10);
     },
     setVolume: function(e, perc = null) {
       var width, percent;
@@ -345,14 +482,13 @@ var app = new Vue({
       $('.volume-progress').css('width', width);
       $('.volume-pointer').css('left', width - 10);
       this.player.volume = this.volume = percent;
-      this.setLocal('volume');
     },
-    shutVolume: function() {
-      player.volume = player.volume == 0 ? this.volume : 0;
-      var width = player.volume * parseInt($('.volume-all').css('width').slice(0, -2));
+    toggleMute: function() {
+      this.player.volume = this.player.volume == 0 ? this.volume : 0;
+      var width = this.player.volume * parseInt($('.volume-all').css('width').slice(0, -2));
       $('.volume-progress').css('width', width);
       $('.volume-pointer').css('left', width - 15);
-      $('#control .glyphicon-volume-down, #control .glyphicon-volume-off').toggleClass('glyphicon-volume-down').toggleClass('glyphicon-volume-off');
+      this.muteBtn.toggleClass('glyphicon-volume-down glyphicon-volume-off');
     },
     proDown: function(e) {
       if ($(e.target).isChildAndSelfOf('.pro-pointer')) {
@@ -380,173 +516,168 @@ var app = new Vue({
         }
       }
     },
-    toTop: function() {
-      $('.tab-content').scrollTop(0);
+    backward: function(force = false) {
+      if (!this.songList.length) return;
+      var next = this.playIndex;
+      if (this.playMode == 0 || this.playMode == 1 && force === true) {
+        next = (next - 1 + this.songList.length) % this.songList.length;
+      } else if (this.playMode == 2) {
+        next = this.getNextRandom();
+      }
+      this.currentTime = 0;
+      this.retrieve(this.songList[next]);
     },
-    triggerMove: function(event) {
-      var filterResult = $('.scroll-table table tr:visible');
-      if (filterResult.length == 0) {
-        return;
+    forward: function(force = false) {
+      if (!this.songList.length) return;
+      var next = this.playIndex;
+      if (this.playMode == 0 || this.playMode == 1 && force === true) {
+        next = (next + 1) % this.songList.length;
+      } else if (this.playMode == 2) {
+        next = this.getNextRandom();
       }
-      var hoverIndex = filterResult.index(filterResult.filter('.hover'));
-      switch (event.keyCode) {
-        case 38: // up
-          hoverIndex = hoverIndex == -1 ? 0 : hoverIndex - 1;
-          event.preventDefault();
-          break;
-        case 40: // down
-          hoverIndex = hoverIndex == -1 ? 0 : hoverIndex + 1;
-          event.preventDefault();
-          break;
-        case 13: // enter
-          filterResult.get(hoverIndex).click();
-          break;
-        default:
-          return;
-      }
-      hoverIndex = (hoverIndex + filterResult.length) % filterResult.length;
-      filterResult.removeClass('hover').get(hoverIndex).classList.add('hover');
-      this.scrollToSong(hoverIndex);
+      this.currentTime = 0;
+      this.retrieve(this.songList[next]);
     },
-    handleFilter: function(force = false) {
-      if (!this.status.filtering && force === false) {
-        return;
-      }
-
-      var filterKeyword = $('#filtering input').val().trim().toLowerCase();
-      if (filterKeyword == '') {
-        $('.scroll-table table tr').removeClass('hover').css('display', 'table-row');
-        return;
-      }
-
-      var hasStart = false;
-      $('.scroll-table table tr').removeClass('hover').each((i, ele) => {
-        if ((i + 1 + ' - ' + this.songList[i].fileName).toLowerCase().indexOf(filterKeyword) === -1) {
-          ele.style.display = 'none';
-        } else {
-          ele.style.display = 'table-row';
-          if (!hasStart) {
-            ele.classList.add('hover');
-            hasStart = true;
-          }
-        }
-      });
-      hasStart && this.scrollToSong(0);
-    },
-    filterSongs: function() {
-      this.status.filtering = !this.status.filtering;
-      if (this.status.filtering) {
-        $('.scroll-table').css('height', '82%');
-        doAsync(() => $('#filtering input').focus());
+    toggle: function(action = null) {
+      if (!this.songList.length) return;
+      if (action === 'play' || !action && this.player.paused) {
+        this.player.play();
+        this.toggleBtn.addClass('glyphicon-pause').removeClass('glyphicon-play');
       } else {
-        $('.scroll-table').animate({ height: '85%' });
-        $('#filtering input').val('');
-        this.handleFilter(true);
+        this.player.pause();
+        this.toggleBtn.addClass('glyphicon-play').removeClass('glyphicon-pause');
       }
     },
-    getLocal: function() {
-      this.storageList.forEach(item => {
-        try {
-          this[item] = JSON.parse(localStorage.getItem(item)) || this[item];
-        } catch (e) {}
-      });
-      // clear songList if current version isn't the last version
-      if (this.version != this.lastVersion) {
-        this.songList = [];
-        this.version = this.lastVersion;
-        localStorage.clear();
-        this.setLocal();
-      }
-      this.songIdList = this.songList.map(song => song.songId);
+    replay: function() {
+      this.player.currentTime = 0;
+      this.toggle('play');
     },
-    setLocal: function(keys) {
-      if (keys) {
-        keys.split(',').forEach(item => {
-          localStorage.setItem(item, JSON.stringify(this[item]));
-        });
-      } else {
-        this.storageList.forEach(item => {
-          localStorage.setItem(item, JSON.stringify(this[item]));
-        });
-      }
+    changeMode: function() {
+      this.playMode = (this.playMode + 1) % 3;
     },
-    setOrigin: function(event, origin = null) {
-      this.origin = origin || event.target.dataset.origin;
-      this.result = this.allResult[this.origin];
-      this.search(1);
-      doAsync(this.searchResultScrollBar.resize);
+    getNextRandom: function() {
+      var half = Math.floor(this.songList.length / 2);
+      var recentCnt = Math.min(this.listenHistory.length, half);
+      var recentHistory = this.listenHistory.slice(-1 * recentCnt);
+      var restSong = this.songList.filter(({songId}) => !recentHistory.includes(songId));
+      var index = restSong.length ? Math.floor(Math.random() * restSong.length) : -1;
+      var next = index != -1 ? this.songList.indexOf(restSong[index]) : this.playIndex;
+      return next;
     },
-    openDownload: function(event) {
-      if (event.ctrlKey) {
-        $(`<a href="${this.player.src}" download target="_blank">`)[0].click();
-      }
-    },
-    init: function() {
-      this.api.search = new Search();
-      this.api.retrieval = new Retrieval();
-      this.player = $('#player')[0];
-      this.playListScrollBar = $('.scroll-table').niceScroll({ touchbehavior: false });
-      this.searchResultScrollBar = $('.tab-content').niceScroll({ touchbehavior: false });
-      this.pageSize = 20;
-      this.midPos = parseInt($('#panel').css('height').slice(0, -2)) / 2 - 10;
-      this.getLocal();
-      this.setVolume(null, this.volume);
-      this.songList.length > 0 && this.retrieve(this.songIdList[this.playIndex], false);
-      for(var item of this.origins) {
-        this.allResult[item.name] = {
-          page: 0,
-          keyword: '',
-          songs: [],
-        };
-      }
-      this.setOrigin(null, this.origin);
-      $('[href="#' + this.origin + '"]').click();
-
-      // volume control
-      $(document).on('keydown', (e) => {
-          switch (e.keyCode) {
-            case 38: // up
-              this.setVolume(null, Math.min(1, this.volume + 0.05));
-              break;
-            case 40: // down
-              this.setVolume(null, Math.max(0, this.volume - 0.05));
-              break;
-            case 37: // left
-              this.player.currentTime = Math.max(0, this.player.currentTime - 3);
-              this.autoProgress();
-              break;
-            case 39: // right
-              this.player.currentTime = Math.min(this.songInfo.time, this.player.currentTime + 3);
-              this.autoProgress();
-              break;
-            case 32: // space
-              this.toggle();
-              break;
-          }
-        });
-
-      var io = new IntersectionObserver(entries => {
-        entries[0].intersectionRatio > 0.005 && this.result.songs.length != 0
-         && this.search();
-      });
-      $('.loading').each((i, el) => io.observe(el));
-    },
-  }
+  },
 });
 
-function init () {
+
+
+var app = new Vue({
+  mixins: [storageMixin],
+  el: '#app',
+  data: {
+    storageAttrs: ['songList', 'playIndex', 'version'],
+    songList: [],
+    playIndex: 0,
+    version: '1.1',
+    latestVersion: '1.1',
+
+    songInfo: {},
+    lyricText: '',
+    loadingSong: false,
+    listenHistory: [],
+    albumImgSrc: CONFIG.defaultAlbum,
+
+    failedTime: 0,
+    player: null, // audio element
+    retrievalApi: new Retrieval(),
+  },
+
+  provide: function() {
+    return {
+      retrieve: this.retrieve,
+    }
+  },
+
+  created: function() {
+    if (this.version != this.latestVersion) {
+      this.version = this.latestVersion;
+      this.songList = [];
+      this.playIndex = 0;
+    }
+  },
+
+  mounted: function() {
+    this.player = $('#player')[0];
+    Vue.nextTick(() => {
+      this.songList.length > 0 && this.retrieve(this.songList[this.playIndex], false);
+    });
+  },
+
+  methods: {
+    retrieve: async function(songInfo, autoplay = true, force = false) {
+      if (!force && songInfo == this.songInfo) {
+        this.$refs.control.replay();
+        return;
+      }
+
+      this.songInfo = songInfo;
+      this.playIndex = this.songList.indexOf(songInfo);
+      this.loadingSong = true;
+      this.lyricText = '';
+      this.listenHistory.push(songInfo.songId);
+      this.$refs.control.toggle('pause')
+
+      var song = await this.retrievalApi.retrieve(songInfo, 'song', force);
+      songInfo.vip = song.vip !== undefined ? song.vip : songInfo.vip;
+      if (songInfo.songId != this.songInfo.songId) return;
+
+      if (song.err) {
+        console.log(song.err);
+        this.showTipAndForward('ERROR: ' + song.err.err_code);
+        return;
+      } else if (!song.url) {
+        songInfo.vip = true;
+        this.showTipAndForward(CONFIG.paymentTip);
+        return;
+      }
+
+      this.failedTime = 0;
+      this.player.src = song.url;
+      this.player.oncanplay = async () => {
+        this.player.oncanplay = null;
+        if (songInfo.songId != this.songInfo.songId) return;
+
+        autoplay && this.$refs.control.toggle('play');
+        var lyric = await this.retrievalApi.retrieve(songInfo, 'lyric', force);
+        this.loadingSong = false;
+        this.lyricText = lyric.lyric;
+      };
+
+      var album = await this.retrievalApi.retrieve(songInfo, 'album', force);
+      if (songInfo.songId != this.songInfo.songId) return;
+      this.albumImgSrc = album.album1v1Url;
+    },
+    songRemoved: function(i) {
+      if (this.playIndex == i) {
+        this.songList.length && this.retrieve(this.songList[i % this.songList.length], !this.player.paused);
+      } else {
+        this.playIndex = this.songList.indexOf(this.songInfo);
+      }
+    },
+    showTipAndForward: function(tip) {
+      showTip(tip);
+      this.albumImgSrc = CONFIG.defaultAlbum;
+      this.loadingSong = false;
+      this.failedTime += 1;
+      if (this.failedTime < 3) 
+        setTimeout(() => this.$refs.control.forward(true), 2000);
+    },
+  },
+});
+
+
+(function() {
   jQuery.fn.extend({
     isChildAndSelfOf: function(selector) {
       return (this.closest(selector).length > 0);
     }
   });
-
-  // album image rotate
-  var albumImg = $('#albumImg');
-  albumImg.count = 0;
-  setInterval(() => {
-    albumImg.count += 1;
-    albumImg.css('transform', 'rotate(' + (albumImg.count % 360) + 'deg)');
-  }, 40);
-}
-init(), app.init();
+})();
