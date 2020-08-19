@@ -7,7 +7,8 @@ var storageMixin = {
   created: function () {
     this.storageAttrs.forEach(key => {
       try {
-        this[key] = JSON.parse(localStorage.getItem(key));
+        var item = localStorage.getItem(key);
+        this[key] = item ? JSON.parse(item) : this[key];
       } finally {
         this.saveStorage(key);
       }
@@ -323,7 +324,7 @@ Vue.component('search-panel', {
       this.retrieve(songInfo, true, true)
     },
     addToList: function(songInfo) {
-      if (this.songList.includes(songInfo)) return;
+      if (this.songList.some(each => each.songId === songInfo.songId)) return;
       this.songList.push(songInfo);
     },
     search: function(page, force=false) {
@@ -399,12 +400,11 @@ Vue.component('control-panel', {
   },
 
   watch: {
-    player: function() {
-      this.setVolume(null, this.volume);
-    },
     player: function(player) {
       if (!player) return;
 
+      this.setVolume(null, this.volume);
+      
       $(player).on('play', () => {
         this.proInterval = setInterval(this.updateProgress, 1000);
         this.albumInterval = setInterval(() => {
