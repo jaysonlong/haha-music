@@ -81,7 +81,8 @@ class Search
             'params' => $params['params'],
             'encSecKey' => $params['encSecKey']
         );
-        $result = request($_config['search_url'], ['body' => $data]);
+        $search_url = $params['useMobile'] == 'true' ? $_config['search_url_mobile'] : $_config['search_url'];
+        $result = request($search_url, ['body' => $data]);
         return $result;
     }
 

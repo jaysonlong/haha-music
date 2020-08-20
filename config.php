@@ -19,9 +19,10 @@ return [
 
     'wangyi' => [
         'search_url' => 'https://music.163.com/weapi/cloudsearch/get/web?csrf_token=',
+        'search_url_mobile' => 'https://interface.music.163.com/weapi/search/get',
 
         'retrieve_song_url' => 'https://music.163.com/weapi/song/enhance/player/url?csrf_token=',
-        'retrieve_song_url_v1' => 'https://interface.music.163.com/weapi/song/enhance/player/url/v1',
+        'retrieve_song_url_mobile' => 'https://interface.music.163.com/weapi/song/enhance/player/url/v1',
         'retrieve_lyric_url' => 'https://music.163.com/weapi/song/lyric?csrf_token=',
         'retrieve_album_url' => 'https://music.163.com/weapi/v3/song/detail?csrf_token=',
         'retrieve_song_backup_url' => 'https://api.imjad.cn/cloudmusic/?type=song&id=%s',

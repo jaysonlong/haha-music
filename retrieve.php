@@ -74,7 +74,7 @@ class Retrieval
 
         switch ($params['target']) {
             case 'song':
-                if ($params['vip'] == 'true') {
+                if ($params['useMobile'] == 'true') {
                     $song_url = sprintf($_config['retrieve_song_url_mobile'], $params['songId']);
                     $page = request($song_url, [
                         'mobile' => true,
@@ -116,11 +116,11 @@ class Retrieval
         
         switch ($params['target']) {
             case 'song':
-                $url = $params['vip'] == 'true' ? $_config['retrieve_song_url_v1'] : $_config['retrieve_song_url'];
+                $url = $params['useMobile'] == 'true' ? $_config['retrieve_song_url_mobile'] : $_config['retrieve_song_url'];
                 $song = request($url, [
                     'body' => $data,
                     'headers' => ['cookie' => $params['cookie']],
-                    'mobile' => $params['vip'] == 'true',
+                    'mobile' => $params['useMobile'] == 'true',
                 ]);
 
                 $data = json_decode($song, true);

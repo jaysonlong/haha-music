@@ -52,20 +52,9 @@ var wangyiEncryption = {
       ids: "[" + id + "]",
     };
     return this.entry(data);
-    
-    data = {
-      ids: "[" + id + "]",
-      level: "standard",
-      encodeType: "aac",
-    };
-    var v1Params = this.entry(data);
-
-    params['v1Params'] = v1Params.params;
-    params['v1EncSecKey'] = v1Params.encSecKey;
-    return params;
   },
 
-  getSongParamsV1(id) {
+  getSongParamsMobile(id) {
     var data = {
       ids: "[" + id + "]",
       level: "standard",
@@ -109,6 +98,20 @@ var wangyiEncryption = {
     return this.entry(data);
   },
 
+  getSearchParamsMobile(keyword, page, pageSize, type = 1) {
+    page = page > 0 ? page : 1;
+    offset = pageSize * (page - 1);
+    var data = {
+      "s": keyword,
+      "type": type,
+      "offset": offset,
+      "limit": pageSize,
+      "strategy": 5,
+      "queryCorrect": true,
+    };
+    return this.entry(data);
+  },
+
   decodeAbroad(data) {
     if (data.abroad == true) {
       var encKey = 'fuck~#$%^&*(458';
@@ -124,9 +127,14 @@ Search.prototype.getParams = function(searchInfo) {
   var { origin, keyword, page, pageSize, force } = searchInfo;
   var params = { origin };
   force && (params.t = new Date().getTime());
-  Object.assign(params, 
-    origin == 'wangyi' ? wangyiEncryption.getSearchParams(keyword, page, pageSize) : 
-    { keyword, page, pagesize: pageSize });
+
+  if (origin == 'wangyi') {
+    var useMobile = true;
+    var methodName = useMobile ? 'getSearchParamsMobile' : 'getSearchParams';
+    Object.assign(params, wangyiEncryption[methodName](keyword, page, pageSize), { useMobile });
+  } else {
+    Object.assign(params, { keyword, page, pagesize: pageSize });
+  }
   return params;
 };
 
@@ -214,7 +222,7 @@ Search.prototype.parseData = function(origin, data) {
 
     case 'wangyi': 
       wangyiEncryption.decodeAbroad(data);
-      if (data.result.songCount < 1) {
+      if (data.result.songCount < 1 || !data.result.songs) {
         break;
       }
       songs = data.result.songs;
@@ -251,13 +259,17 @@ var Retrieval = function() {
 }
 
 Retrieval.prototype.getParams = function(songInfo, target, force) {
-  var params = { origin: songInfo.origin, target, vip: songInfo.vip };
+  var params = { origin: songInfo.origin, target, useMobile: songInfo.vip };
+
   if (songInfo.origin == 'wangyi') {
-    target = target.charAt(0).toUpperCase() + target.substr(1);
-    var wangyiParams = wangyiEncryption['get' + target + 'Params'](songInfo.songId);
-    if (songInfo.vip && target == 'Song') {
-      wangyiParams = wangyiEncryption.getSongParamsV1(songInfo.songId);
+    var methodName;
+    if (target == 'song') {
+      methodName = params.useMobile ? 'getSongParamsMobile' : 'getSongParams';
+    } else {
+      methodName = 'get' + target.charAt(0).toUpperCase() + target.substr(1) + 'Params';
     }
+
+    wangyiParams = wangyiEncryption[methodName](songInfo.songId);
     var cookie = '_ntes_nuid=' + fetch_visitor_hash();
     Object.assign(params, wangyiParams, { cookie });
   } else {
