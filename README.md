@@ -3,7 +3,7 @@
 
 将四大音乐平台（网易云、酷狗、QQ、虾米）的网页播放源整合成单个网页播放器。
 
-**在线Demo地址**： [哈哈音乐](http://jaysonl.top)
+**在线Demo地址**： [哈哈音乐](http://jaysonl.top/haha/)
 
 ![cover.png](./resource/cover.png)
 
