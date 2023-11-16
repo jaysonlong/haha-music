@@ -26,7 +26,7 @@ PORT=80 docker-compose up -d
 curl 127.0.0.1
 
 # 停止容器
-docker-compose stop
+PORT=80 docker-compose stop
 ```
 
 #### 2. 使用docker
