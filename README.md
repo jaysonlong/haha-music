@@ -13,27 +13,34 @@
 
 ### 安装部署
 
-#### 1. 快速部署(Docker + php-cli)
-
-拉取代码：
+#### 1. 使用docker-compose
 
 ```console
-mkdir -p /www && cd /www
-git clone https://github.com/jaysonlong/haha-music.git
+# 克隆
+git clone https://github.com/jaysonlong/haha-music.git && cd haha-music
+
+# 启动容器，使用80端口
+PORT=80 docker-compose up -d
+
+# 验证
+curl 127.0.0.1
+
+# 停止容器
+docker-compose stop
 ```
 
-运行 php-cli 容器：
+#### 2. 使用docker
 
 ```console
-docker run -d -p 8000:80 -v /www/haha-music:/www  php:7-cli php -S 0.0.0.0:80 -t /www
+# 克隆
+git clone https://github.com/jaysonlong/haha-music.git && cd haha-music
+
+# 启动容器，使用80端口
+PORT=80 sh docker-compose.sh up
+
+# 验证
+curl 127.0.0.1
+
+# 停止容器
+sh docker-compose.sh stop
 ```
-
-验证，浏览器打开 http://127.0.0.1:8000/ ，或执行以下命令：
-
-```console
-curl 127.0.0.1:8000
-```
-
-#### 2. 其他部署(Host/Docker, php-fpm + nginx/apache)
-
-自己玩去
