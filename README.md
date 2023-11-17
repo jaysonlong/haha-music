@@ -13,34 +13,38 @@
 
 ### 安装部署
 
-#### 1. 使用docker-compose
+#### 克隆项目
 
 ```console
-# 克隆
 git clone https://github.com/jaysonlong/haha-music.git && cd haha-music
-
-# 启动容器，使用80端口
-PORT=80 docker-compose up -d
-
-# 验证
-curl 127.0.0.1
-
-# 停止容器
-PORT=80 docker-compose stop
 ```
 
-#### 2. 使用docker
+#### docker-compose 启动
 
 ```console
-# 克隆
-git clone https://github.com/jaysonlong/haha-music.git && cd haha-music
+# 启动容器，监听80端口
+docker-compose up -d
 
-# 启动容器，使用80端口
-PORT=80 sh docker-compose.sh up
-
-# 验证
-curl 127.0.0.1
+# 监听指定端口
+PORT=8080 docker-compose up -d
 
 # 停止容器
-sh docker-compose.sh stop
+docker-compose stop
 ```
+
+#### docker 启动
+
+```console
+# 启动容器，监听80端口
+./docker-compose.sh up
+
+# 监听指定端口
+PORT=8080 ./docker-compose.sh up
+
+# 停止容器
+./docker-compose.sh stop
+```
+
+#### 访问页面
+
+浏览器访问 http://localhost
