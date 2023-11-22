@@ -8,8 +8,8 @@ function create_containers() {
     if [ "$PORT" == "-1" ]; then
         if [ "$PREV_PORT" != "" ]; then
             echo delete previous nginx container
-            docker stop haha-nginx > /dev/null
-            docker rm haha-nginx > /dev/null
+            docker stop haha-nginx > /dev/null 2>&1
+            docker rm haha-nginx > /dev/null 2>&1
         fi
 
         docker create --name haha-nginx --net haha-music -v $(pwd)/src:/var/www/html \
@@ -17,8 +17,8 @@ function create_containers() {
     else
         if [ "$PREV_PORT" == "" ] || [ "$PREV_PORT" != "$PORT" ]; then
             echo delete previous nginx container
-            docker stop haha-nginx > /dev/null
-            docker rm haha-nginx > /dev/null
+            docker stop haha-nginx > /dev/null 2>&1
+            docker rm haha-nginx > /dev/null 2>&1
         fi
 
         docker create --name haha-nginx --net haha-music -p ${PORT}:80 -v $(pwd)/src:/var/www/html \
