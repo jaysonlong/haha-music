@@ -3,7 +3,7 @@
 
 将四大音乐平台（网易云、酷狗、QQ、虾米）的网页播放源整合成单个网页播放器。
 
-**在线Demo地址**： [哈哈音乐](http://jaysonl.top/haha/)
+**在线Demo地址**： [哈哈音乐](http://jaysonl.top/haha-music/)
 
 ![cover.png](./resource/cover.png)
 
@@ -15,13 +15,13 @@
 
 #### 克隆项目
 
-```console
+```bash
 git clone https://github.com/jaysonlong/haha-music.git && cd haha-music
 ```
 
 #### docker-compose 启动
 
-```console
+```bash
 # 启动容器，监听80端口
 docker-compose up -d
 
@@ -34,7 +34,7 @@ docker-compose stop
 
 #### docker 启动
 
-```console
+```bash
 # 启动容器，监听80端口
 ./docker-compose.sh up
 
