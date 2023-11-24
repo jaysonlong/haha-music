@@ -11,38 +11,27 @@
 
 ------
 
-### 安装部署
+### 🔨 安装部署
 
-#### 克隆项目
+#### 准备项目
 
 ```bash
-git clone https://github.com/jaysonlong/haha-music.git && cd haha-music
+git clone https://github.com/jaysonlong/haha-music.git
+cd haha-music
+sudo docker network create haha-music
 ```
 
-#### docker-compose 启动
+#### 使用 docker-compose (V2) 启动/停止
 
 ```bash
 # 启动容器，监听80端口
-docker-compose up -d
+sudo docker compose up -d
 
-# 监听指定端口
-PORT=8080 docker-compose up -d
-
-# 停止容器
-docker-compose stop
-```
-
-#### docker 启动
-
-```bash
-# 启动容器，监听80端口
-./docker-compose.sh up
-
-# 监听指定端口
-PORT=8080 ./docker-compose.sh up
+# 或指定监听端口
+sudo PORT=8080 docker compose up -d
 
 # 停止容器
-./docker-compose.sh stop
+sudo docker compose stop
 ```
 
 #### 访问页面
